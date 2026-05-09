@@ -55,6 +55,9 @@ function mockPrice(symbol, index = 0) {
     market: instrument.market,
     category: instrument.category,
     currency: instrument.currency,
+    source: 'sample',
+    isLive: false,
+    updatedAt: new Date().toISOString(),
     currentPrice,
     price: currentPrice,
     changeAmount: instrument.currency === 'USD' ? Number((currentPrice - instrument.price).toFixed(2)) : Math.round(currentPrice - instrument.price),
@@ -292,9 +295,15 @@ async function getLiveInstrumentPrice(env, keys, symbol, index = 0) {
       market: instrument.market,
       category: instrument.category,
       currency: instrument.currency,
+      source: 'KIS',
+      isLive: true,
+      updatedAt: new Date().toISOString(),
     };
-  } catch {
-    return mockPrice(instrument.symbol, index);
+  } catch (err) {
+    return {
+      ...mockPrice(instrument.symbol, index),
+      fallbackReason: err.message || 'KIS quote request failed',
+    };
   }
 }
 

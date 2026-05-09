@@ -112,7 +112,15 @@ export default function StockDetail() {
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-black text-white tracking-tighter">{stock.name || symbol}</h1>
               <span className="px-2 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded uppercase font-black tracking-widest">{symbol} · {stock.market || 'MARKET'}</span>
+              <span className={`px-2 py-0.5 text-[10px] rounded uppercase font-black tracking-widest ${stock.isLive ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                {stock.isLive ? '실시간 KIS' : '샘플 시세'}
+              </span>
             </div>
+            {!stock.isLive && stock.fallbackReason && (
+              <p className="mt-2 max-w-2xl text-xs font-bold text-yellow-500/80">
+                KIS 실시간 시세를 가져오지 못해 샘플 시세를 표시 중입니다. 설정에서 KIS App Key, App Secret, 계좌번호를 저장하거나 Cloudflare 환경변수를 확인하세요.
+              </p>
+            )}
           </div>
         </div>
         

@@ -225,6 +225,9 @@ export default function Dashboard() {
                     <td className="py-5 pl-2">
                       <p className="text-sm font-black text-white mb-0.5">{s.name || s.symbol}</p>
                       <p className="text-[10px] text-gray-600 font-bold uppercase tracking-wider">{s.symbol} · {s.market || 'MARKET'}</p>
+                      <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[9px] font-black ${s.isLive ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                        {s.isLive ? '실시간 KIS' : '샘플'}
+                      </span>
                     </td>
                     <td className="py-5 text-right font-black text-white text-base">
                       {s.currency === 'USD' ? '$ ' : '₩ '}{s.currentPrice.toLocaleString()}

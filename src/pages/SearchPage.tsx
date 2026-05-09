@@ -10,6 +10,9 @@ interface SearchResult {
   market?: string;
   category?: 'korea' | 'global' | 'etf';
   currency?: 'KRW' | 'USD';
+  source?: 'KIS' | 'sample';
+  isLive?: boolean;
+  fallbackReason?: string;
   price: number;
   changeRate: number;
   volume: string;
@@ -106,6 +109,9 @@ export default function SearchPage() {
                     <div className="flex flex-col">
                       <span className="text-sm font-bold text-white">{stock.name}</span>
                       <span className="text-xs text-gray-500">{stock.symbol} · {stock.market || stock.category || 'MARKET'}</span>
+                      <span className={`mt-1 w-fit rounded-full px-2 py-0.5 text-[9px] font-black ${stock.isLive ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                        {stock.isLive ? '실시간 KIS' : '샘플 시세'}
+                      </span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">

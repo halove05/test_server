@@ -6,6 +6,10 @@ export interface StockPrice {
   market?: string;
   category?: 'korea' | 'global' | 'etf';
   currency?: 'KRW' | 'USD';
+  source?: 'KIS' | 'sample';
+  isLive?: boolean;
+  updatedAt?: string;
+  fallbackReason?: string;
   currentPrice: number;
   changeAmount: number;
   changeRate: number;
