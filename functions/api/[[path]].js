@@ -31,8 +31,8 @@ const marketUniverse = [
   { symbol: 'QQQ', name: 'Invesco QQQ Trust', market: 'NASDAQ', category: 'etf', currency: 'USD', price: 444.8 },
   { symbol: 'VTI', name: 'Vanguard Total Stock Market ETF', market: 'NYSE Arca', category: 'etf', currency: 'USD', price: 257.9 },
   { symbol: 'SCHD', name: 'Schwab US Dividend Equity ETF', market: 'NYSE Arca', category: 'etf', currency: 'USD', price: 79.4 },
-  { symbol: 'TIGER200', name: 'TIGER 200', market: 'KOSPI ETF', category: 'etf', currency: 'KRW', price: 38450 },
-  { symbol: 'KODEX200', name: 'KODEX 200', market: 'KOSPI ETF', category: 'etf', currency: 'KRW', price: 38620 },
+  { symbol: 'TIGER200', kisSymbol: '102110', name: 'TIGER 200', market: 'KOSPI ETF', category: 'etf', currency: 'KRW', price: 38450 },
+  { symbol: 'KODEX200', kisSymbol: '069500', name: 'KODEX 200', market: 'KOSPI ETF', category: 'etf', currency: 'KRW', price: 38620 },
 ];
 
 const symbolNames = Object.fromEntries(marketUniverse.map((item) => [item.symbol, item.name]));
@@ -219,10 +219,12 @@ async function getHashkey(env, keys, orderBody) {
 }
 
 async function getCurrentPrice(env, keys, symbol) {
+  const instrument = findInstrument(symbol);
+  const kisSymbol = instrument?.kisSymbol || symbol;
   const token = await getAccessToken(env, keys);
   const data = await kisFetch(env, '/uapi/domestic-stock/v1/quotations/inquire-price', {
     headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, appkey: keys.appKey, appsecret: keys.appSecret, tr_id: 'FHKST01010100', custtype: 'P' },
-    params: { fid_cond_mrkt_div_code: 'J', fid_input_iscd: symbol },
+    params: { fid_cond_mrkt_div_code: 'J', fid_input_iscd: kisSymbol },
   });
   if (data.rt_cd !== '0') throw new Error(data.msg1 || 'KIS price request failed');
   const o = data.output;
@@ -236,6 +238,127 @@ async function getCurrentPrice(env, keys, symbol) {
     volume: Number(o.acml_vol || 0),
     marketCap: Number(o.hts_avls || 0),
   };
+}
+
+function overseasExchangeCode(instrument) {
+  if (!instrument) return 'NAS';
+  if (instrument.market === 'NYSE' || instrument.market === 'NYSE Arca') return 'NYS';
+  if (instrument.market === 'NASDAQ') return 'NAS';
+  return 'NAS';
+}
+
+async function getOverseasCurrentPrice(env, keys, symbol) {
+  const instrument = findInstrument(symbol);
+  const token = await getAccessToken(env, keys);
+  const data = await kisFetch(env, '/uapi/overseas-price/v1/quotations/price', {
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${token}`,
+      appkey: keys.appKey,
+      appsecret: keys.appSecret,
+      tr_id: 'HHDFS00000300',
+      custtype: 'P',
+    },
+    params: { AUTH: '', EXCD: overseasExchangeCode(instrument), SYMB: symbol },
+  });
+  if (data.rt_cd !== '0') throw new Error(data.msg1 || 'KIS overseas price request failed');
+  const o = data.output || {};
+  const currentPrice = Number(o.last || o.price || o.ovrs_nmix_prpr || 0);
+  const changeAmount = Number(o.diff || o.prdy_vrss || 0);
+  const changeRate = Number(o.rate || o.prdy_ctrt || 0);
+  return {
+    symbol,
+    currentPrice,
+    changeAmount,
+    changeRate,
+    high: Number(o.high || o.stck_hgpr || currentPrice),
+    low: Number(o.low || o.stck_lwpr || currentPrice),
+    volume: Number(o.tvol || o.acml_vol || 0),
+  };
+}
+
+async function getLiveInstrumentPrice(env, keys, symbol, index = 0) {
+  const instrument = findInstrument(symbol);
+  if (!instrument) return mockPrice(symbol, index);
+  try {
+    const live = instrument.currency === 'USD'
+      ? await getOverseasCurrentPrice(env, keys, instrument.symbol)
+      : await getCurrentPrice(env, keys, instrument.symbol);
+    return {
+      ...mockPrice(instrument.symbol, index),
+      ...live,
+      symbol: instrument.symbol,
+      name: instrument.name,
+      market: instrument.market,
+      category: instrument.category,
+      currency: instrument.currency,
+    };
+  } catch {
+    return mockPrice(instrument.symbol, index);
+  }
+}
+
+async function getKisUsdKrwRate(env, keys) {
+  if (!keys?.accountNo) throw new Error('KIS account number is missing');
+  const token = await getAccessToken(env, keys);
+  const isVirtual = (env.KIS_API_URL || '').includes('vts');
+  const data = await kisFetch(env, '/uapi/overseas-stock/v1/trading/inquire-psamount', {
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${token}`,
+      appkey: keys.appKey,
+      appsecret: keys.appSecret,
+      tr_id: isVirtual ? 'VTTS3007R' : 'TTTS3007R',
+      custtype: 'P',
+    },
+    params: {
+      CANO: keys.accountNo,
+      ACNT_PRDT_CD: '01',
+      OVRS_EXCG_CD: 'NASD',
+      OVRS_ORD_UNPR: '1',
+      ITEM_CD: 'AAPL',
+    },
+  });
+  if (data.rt_cd !== '0') throw new Error(data.msg1 || 'KIS exchange-rate request failed');
+  const o = data.output || {};
+  const value = Number(o.ovrs_excg_rate || o.frst_bltn_exrt || o.aply_exrt || o.exrt || 0);
+  if (!value) throw new Error('KIS exchange-rate output did not include a usable rate');
+  return value;
+}
+
+async function fetchFrankfurterRate(from, to) {
+  const res = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
+  if (!res.ok) throw new Error('Exchange-rate fallback request failed');
+  const data = await res.json();
+  const value = Number(data.rates?.[to] || 0);
+  if (!value) throw new Error('Exchange-rate fallback returned no rate');
+  return value;
+}
+
+async function getExchangeRates(env, keys) {
+  const cacheKey = 'exchange-rates:krw';
+  const cached = await getKV(env, cacheKey, null);
+  if (cached && Date.now() - cached.timestamp < 10 * 60 * 1000) return cached.items;
+
+  let usdKrw;
+  try {
+    usdKrw = await getKisUsdKrwRate(env, keys);
+  } catch {
+    usdKrw = await fetchFrankfurterRate('USD', 'KRW');
+  }
+
+  const [jpyKrw, eurKrw] = await Promise.all([
+    fetchFrankfurterRate('JPY', 'KRW').catch(() => 9.12),
+    fetchFrankfurterRate('EUR', 'KRW').catch(() => 1482.6),
+  ]);
+
+  const items = [
+    { name: 'USD/KRW', value: Number(usdKrw.toFixed(2)), change: 0, changeRate: 0, type: 'fx', source: 'live' },
+    { name: 'JPY/KRW', value: Number(jpyKrw.toFixed(2)), change: 0, changeRate: 0, type: 'fx', source: 'live' },
+    { name: 'EUR/KRW', value: Number(eurKrw.toFixed(2)), change: 0, changeRate: 0, type: 'fx', source: 'live' },
+  ];
+  await putKV(env, cacheKey, { timestamp: Date.now(), items });
+  return items;
 }
 
 async function getAccountBalance(env, keys) {
@@ -485,12 +608,15 @@ async function route(context) {
   }
 
   if (path === 'market/indices') {
+    const exchangeRates = await getExchangeRates(env, keys).catch(() => [
+      { name: 'USD/KRW', value: 1368.4, change: 0, changeRate: 0, type: 'fx' },
+      { name: 'JPY/KRW', value: 9.12, change: 0, changeRate: 0, type: 'fx' },
+      { name: 'EUR/KRW', value: 1482.6, change: 0, changeRate: 0, type: 'fx' },
+    ]);
     return response([
       { name: 'KOSPI', value: 2750.32, change: 15.2, changeRate: 0.55 },
       { name: 'KOSDAQ', value: 890.15, change: -2.1, changeRate: -0.23 },
-      { name: 'USD/KRW', value: 1368.4, change: 4.7, changeRate: 0.34, type: 'fx' },
-      { name: 'JPY/KRW', value: 9.12, change: -0.03, changeRate: -0.33, type: 'fx' },
-      { name: 'EUR/KRW', value: 1482.6, change: 2.9, changeRate: 0.2, type: 'fx' },
+      ...exchangeRates,
     ]);
   }
 
@@ -500,7 +626,8 @@ async function route(context) {
       const haystack = `${item.symbol} ${item.name} ${item.market} ${item.category}`.toLowerCase();
       return haystack.includes(q);
     });
-    return response(filtered.map((item, index) => ({ ...mockPrice(item.symbol, index), volume: mockPrice(item.symbol, index).volume.toLocaleString() })));
+    const prices = await Promise.all(filtered.slice(0, 12).map((item, index) => getLiveInstrumentPrice(env, keys, item.symbol, index)));
+    return response(prices.map((item) => ({ ...item, volume: item.volume.toLocaleString() })));
   }
 
   if (path === 'market/movers') {
@@ -509,14 +636,7 @@ async function route(context) {
   }
 
   if (parts[0] === 'market' && parts[1] === 'stock' && parts[2]) {
-    const instrument = findInstrument(parts[2]);
-    if (instrument?.category !== 'korea') return response(mockPrice(parts[2], marketUniverse.indexOf(instrument)));
-    try {
-      const live = await getCurrentPrice(env, keys, parts[2]);
-      return response({ ...mockPrice(parts[2]), ...live, name: instrument?.name, market: instrument?.market, category: instrument?.category, currency: instrument?.currency || 'KRW' });
-    } catch {
-      return response(mockPrice(parts[2], marketUniverse.findIndex((item) => item.symbol === parts[2])));
-    }
+    return response(await getLiveInstrumentPrice(env, keys, parts[2], marketUniverse.findIndex((item) => item.symbol === parts[2])));
   }
 
   if (parts[0] === 'market' && parts[1] === 'signal' && parts[2]) {
