@@ -20,6 +20,35 @@ export default function StrategyPage() {
   const [backtestResult, setBacktestResult] = useState<any>(null);
   const { locale, t } = useLocaleStore();
 
+  const conditionLabels: Record<string, string> = {
+    RSI: 'RSI 과매수/과매도',
+    PRICE: '현재가',
+    MA: '20일 이동평균',
+    MACD: 'MACD 추세',
+    NEWS: '뉴스 심리',
+  };
+
+  const actionLabels: Record<string, string> = {
+    BUY: '매수',
+    SELL: '매도',
+  };
+
+  const operatorLabels: Record<string, string> = {
+    '<=': '이하이면',
+    '>=': '이상이면',
+    '==': '같으면',
+    CROSS: '돌파하면',
+  };
+
+  const getConditionSentence = (cond: Condition) => {
+    const metric = locale === 'ko' ? conditionLabels[cond.type] || cond.type : cond.type;
+    const operator = locale === 'ko' ? operatorLabels[cond.operator] || cond.operator : cond.operator;
+    const action = locale === 'ko' ? actionLabels[cond.action] || cond.action : cond.action;
+    return locale === 'ko'
+      ? `${metric} 값이 ${cond.value} ${operator} ${action} 신호로 판단합니다.`
+      : `If ${metric} ${cond.operator} ${cond.value}, trigger ${cond.action}.`;
+  };
+
   useEffect(() => { fetchStrategies(); }, []);
 
   const fetchStrategies = async () => {
@@ -61,26 +90,55 @@ export default function StrategyPage() {
         <div className="lg:col-span-3 space-y-8">
           <div className="bg-[#161b22] p-8 rounded-3xl border border-gray-800 shadow-premium min-h-[400px]">
             <div className="flex items-center justify-between mb-8 border-b border-gray-800 pb-6">
-              <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-3"><Settings2 className="text-orange-500" /> {locale === 'ko' ? '조건 블록' : 'Condition Blocks'}</h2>
-              <button onClick={() => setConditions([...conditions, { id: Date.now(), type: 'PRICE', operator: '<=', value: 70000, action: 'BUY' }])} className="text-xs bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all font-bold">{locale === 'ko' ? '블록 추가' : 'ADD BLOCK'}</button>
+              <div>
+                <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-3"><Settings2 className="text-orange-500" /> {locale === 'ko' ? '매매 조건 만들기' : 'Condition Blocks'}</h2>
+                <p className="text-xs text-gray-500 font-bold mt-2 leading-relaxed">
+                  {locale === 'ko'
+                    ? '조건은 “어떤 지표가 어떤 값이 되면 매수/매도한다”는 규칙입니다. 예: RSI가 30 이하이면 과매도라 보고 매수합니다.'
+                    : 'A condition is a rule: when an indicator reaches a value, the strategy buys or sells.'}
+                </p>
+              </div>
+              <button onClick={() => setConditions([...conditions, { id: Date.now(), type: 'PRICE', operator: '<=', value: 70000, action: 'BUY' }])} className="text-xs bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all font-bold">{locale === 'ko' ? '조건 추가' : 'ADD BLOCK'}</button>
             </div>
             <div className="space-y-4">
               {conditions.map((cond, index) => (
-                <div key={cond.id} className="flex items-center gap-4 bg-gray-900/40 p-5 rounded-2xl border border-gray-800 group hover:border-gray-700 transition-all">
-                  <span className="text-blue-500 font-black text-sm">IF</span>
-                  <select className="bg-transparent text-white font-bold outline-none cursor-pointer" value={cond.type} onChange={(e) => { const n = [...conditions]; n[index].type = e.target.value; setConditions(n); }}>
-                    <option value="RSI">RSI (14)</option><option value="PRICE">Price</option><option value="MA">MA (20)</option><option value="MACD">MACD</option><option value="NEWS">Sentiment</option>
-                  </select>
-                  <select className="bg-transparent text-gray-400 font-bold outline-none cursor-pointer" value={cond.operator} onChange={(e) => { const n = [...conditions]; n[index].operator = e.target.value; setConditions(n); }}>
-                    <option value="<=">&lt;=</option><option value=">=">&gt;=</option><option value="==">==</option><option value="CROSS">CROSS</option>
-                  </select>
-                  <input type="text" value={cond.value} className="bg-gray-800 text-white rounded-lg px-3 py-1 w-24 text-center font-bold outline-none focus:ring-1 focus:ring-red-500" onChange={(e) => { const n = [...conditions]; n[index].value = e.target.value; setConditions(n); }} />
-                  <span className="text-blue-500 font-black text-sm">THEN</span>
-                  <select className="bg-transparent font-black outline-none cursor-pointer" value={cond.action} onChange={(e) => { const n = [...conditions]; n[index].action = e.target.value; setConditions(n); }}>
-                    <option value="BUY" className="text-red-500">BUY</option><option value="SELL" className="text-blue-500">SELL</option>
-                  </select>
-                  <div className="flex-1"></div>
-                  <button onClick={() => setConditions(conditions.filter(c => c.id !== cond.id))} className="text-gray-700 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button>
+                <div key={cond.id} className="bg-gray-900/40 p-5 rounded-2xl border border-gray-800 group hover:border-gray-700 transition-all space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_120px_1fr_auto] gap-4 items-end">
+                    <label className="space-y-2">
+                      <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">{locale === 'ko' ? '지표' : 'Indicator'}</span>
+                      <select className="w-full bg-[#0d1117] text-white font-bold outline-none cursor-pointer rounded-xl border border-gray-800 px-3 py-3" value={cond.type} onChange={(e) => { const n = [...conditions]; n[index].type = e.target.value; setConditions(n); }}>
+                        <option value="RSI">{locale === 'ko' ? 'RSI 과매수/과매도' : 'RSI (14)'}</option>
+                        <option value="PRICE">{locale === 'ko' ? '현재가' : 'Price'}</option>
+                        <option value="MA">{locale === 'ko' ? '20일 이동평균' : 'MA (20)'}</option>
+                        <option value="MACD">{locale === 'ko' ? 'MACD 추세' : 'MACD'}</option>
+                        <option value="NEWS">{locale === 'ko' ? '뉴스 심리' : 'Sentiment'}</option>
+                      </select>
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">{locale === 'ko' ? '판단 기준' : 'Rule'}</span>
+                      <select className="w-full bg-[#0d1117] text-gray-300 font-bold outline-none cursor-pointer rounded-xl border border-gray-800 px-3 py-3" value={cond.operator} onChange={(e) => { const n = [...conditions]; n[index].operator = e.target.value; setConditions(n); }}>
+                        <option value="<=">{locale === 'ko' ? '이하이면' : '<='}</option>
+                        <option value=">=">{locale === 'ko' ? '이상이면' : '>='}</option>
+                        <option value="==">{locale === 'ko' ? '같으면' : '=='}</option>
+                        <option value="CROSS">{locale === 'ko' ? '돌파하면' : 'CROSS'}</option>
+                      </select>
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">{locale === 'ko' ? '값' : 'Value'}</span>
+                      <input type="text" value={cond.value} className="w-full bg-[#0d1117] text-white rounded-xl border border-gray-800 px-3 py-3 text-center font-bold outline-none focus:ring-1 focus:ring-red-500" onChange={(e) => { const n = [...conditions]; n[index].value = e.target.value; setConditions(n); }} />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">{locale === 'ko' ? '실행' : 'Action'}</span>
+                      <select className="w-full bg-[#0d1117] font-black outline-none cursor-pointer rounded-xl border border-gray-800 px-3 py-3" value={cond.action} onChange={(e) => { const n = [...conditions]; n[index].action = e.target.value; setConditions(n); }}>
+                        <option value="BUY" className="text-red-500">{locale === 'ko' ? '매수' : 'BUY'}</option>
+                        <option value="SELL" className="text-blue-500">{locale === 'ko' ? '매도' : 'SELL'}</option>
+                      </select>
+                    </label>
+                    <button onClick={() => setConditions(conditions.filter(c => c.id !== cond.id))} className="p-3 text-gray-700 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"><Trash2 size={18} /></button>
+                  </div>
+                  <div className="rounded-xl border border-blue-500/10 bg-blue-500/5 px-4 py-3 text-xs font-bold text-blue-200">
+                    {getConditionSentence(cond)}
+                  </div>
                 </div>
               ))}
             </div>

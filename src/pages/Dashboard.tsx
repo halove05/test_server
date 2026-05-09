@@ -120,7 +120,7 @@ export default function Dashboard() {
             >
               <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">{idx.name}</span>
               <div className="flex items-center gap-3">
-                <span className="text-lg font-black text-white tracking-tighter">{idx.value?.toLocaleString()}</span>
+                <span className="text-lg font-black text-white tracking-tighter">{idx.type === 'fx' ? `₩ ${idx.value?.toLocaleString()}` : idx.value?.toLocaleString()}</span>
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${idx.change >= 0 ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'}`}>
                   {idx.change >= 0 ? '▲' : '▼'} {Math.abs(idx.changeRate)}%
                 </span>

@@ -485,7 +485,13 @@ async function route(context) {
   }
 
   if (path === 'market/indices') {
-    return response([{ name: 'KOSPI', value: 2750.32, change: 15.2, changeRate: 0.55 }, { name: 'KOSDAQ', value: 890.15, change: -2.1, changeRate: -0.23 }]);
+    return response([
+      { name: 'KOSPI', value: 2750.32, change: 15.2, changeRate: 0.55 },
+      { name: 'KOSDAQ', value: 890.15, change: -2.1, changeRate: -0.23 },
+      { name: 'USD/KRW', value: 1368.4, change: 4.7, changeRate: 0.34, type: 'fx' },
+      { name: 'JPY/KRW', value: 9.12, change: -0.03, changeRate: -0.33, type: 'fx' },
+      { name: 'EUR/KRW', value: 1482.6, change: 2.9, changeRate: 0.2, type: 'fx' },
+    ]);
   }
 
   if (path === 'market/search') {
