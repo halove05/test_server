@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, Power, PowerOff, ShieldAlert, Loader2, History, BarChart3, TrendingUp, TrendingDown } from 'lucide-react';
 import { kisService } from '../services/kisService';
 import { motion } from 'framer-motion';
+import { useLocaleStore } from '@/store/useLocaleStore';
 
 export default function TradingPage() {
   const [isLiveActive, setIsLiveActive] = useState(false);
@@ -11,6 +12,7 @@ export default function TradingPage() {
   const [holdings, setHoldings] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { locale, t } = useLocaleStore();
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -49,21 +51,21 @@ export default function TradingPage() {
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-700">
       <div>
-        <h1 className="text-4xl font-black text-white mb-2 tracking-tighter">Trading Station</h1>
-        <p className="text-gray-500 font-bold">자동매매 엔진 및 실시간 포트폴리오 관리</p>
+        <h1 className="text-4xl font-black text-white mb-2 tracking-tighter">{t('tradingStation')}</h1>
+        <p className="text-gray-500 font-bold">{t('tradingStationDescription')}</p>
       </div>
 
       {/* Mode & Engine Control */}
       <div className="bg-[#161b22] p-8 rounded-3xl border border-gray-800 shadow-premium flex flex-col md:flex-row justify-between items-center gap-8">
         <div className="flex p-1.5 bg-[#0d1117] rounded-2xl">
-          <button onClick={() => setMode('mock')} className={`px-8 py-3 rounded-xl font-black text-sm transition-all ${mode === 'mock' ? 'bg-[#1f242c] text-white shadow-premium' : 'text-gray-500'}`}>PAPER TRADING</button>
-          <button onClick={() => setMode('real')} className={`px-8 py-3 rounded-xl font-black text-sm transition-all flex items-center gap-2 ${mode === 'real' ? 'bg-red-500/10 text-red-500 shadow-glow-red' : 'text-gray-500'}`}><ShieldAlert size={16} /> LIVE TRADING</button>
+          <button onClick={() => setMode('mock')} className={`px-8 py-3 rounded-xl font-black text-sm transition-all ${mode === 'mock' ? 'bg-[#1f242c] text-white shadow-premium' : 'text-gray-500'}`}>{t('paperTrading')}</button>
+          <button onClick={() => setMode('real')} className={`px-8 py-3 rounded-xl font-black text-sm transition-all flex items-center gap-2 ${mode === 'real' ? 'bg-red-500/10 text-red-500 shadow-glow-red' : 'text-gray-500'}`}><ShieldAlert size={16} /> {t('liveTrading')}</button>
         </div>
 
         <div className="flex items-center gap-6">
           <div className="text-right">
-            <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">Engine Status</p>
-            <p className={`font-black text-lg tracking-tight ${isLiveActive ? 'text-green-500' : 'text-gray-500'}`}>{isLiveActive ? 'ACTIVE (ON)' : 'STANDBY (OFF)'}</p>
+            <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">{t('engineStatus')}</p>
+            <p className={`font-black text-lg tracking-tight ${isLiveActive ? 'text-green-500' : 'text-gray-500'}`}>{isLiveActive ? (locale === 'ko' ? '가동 중' : 'ACTIVE') : t('standby')}</p>
           </div>
           <button onClick={handleToggle} className={`w-20 h-20 rounded-3xl flex items-center justify-center transition-all shadow-premium active:scale-95 ${isLiveActive ? 'bg-green-600 shadow-green-500/10' : 'bg-gray-800'}`}>
             {isLiveActive ? <Power size={32} className="text-white" /> : <PowerOff size={32} className="text-gray-400" />}
@@ -75,7 +77,7 @@ export default function TradingPage() {
       {summary?.metrics && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-[#161b22] p-6 rounded-3xl border border-gray-800 shadow-premium">
-            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Win Rate</p>
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">{t('winRate')}</p>
             <h3 className="text-3xl font-black text-white tracking-tighter">{summary.metrics.winRate}%</h3>
             <div className="mt-4 h-1.5 bg-gray-800 rounded-full overflow-hidden">
               <div className="h-full bg-green-500" style={{ width: `${summary.metrics.winRate}%` }}></div>
@@ -87,7 +89,7 @@ export default function TradingPage() {
             <p className="text-[10px] text-gray-600 font-bold mt-2">Gross Profit / Gross Loss</p>
           </div>
           <div className="bg-[#161b22] p-6 rounded-3xl border border-gray-800 shadow-premium">
-            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Avg Gain / Loss</p>
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">{t('avgGainLoss')}</p>
             <div className="flex items-baseline gap-2">
               <span className="text-xl font-black text-red-500">+{summary.metrics.avgGain?.toLocaleString()}</span>
               <span className="text-gray-700">/</span>
@@ -95,8 +97,8 @@ export default function TradingPage() {
             </div>
           </div>
           <div className="bg-[#161b22] p-6 rounded-3xl border border-gray-800 shadow-premium">
-            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Total Executed</p>
-            <h3 className="text-3xl font-black text-white tracking-tighter">{summary.metrics.totalTrades} <span className="text-sm text-gray-600">Orders</span></h3>
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">{t('totalExecuted')}</p>
+            <h3 className="text-3xl font-black text-white tracking-tighter">{summary.metrics.totalTrades} <span className="text-sm text-gray-600">{locale === 'ko' ? '건' : 'Orders'}</span></h3>
           </div>
         </div>
       )}
@@ -105,18 +107,18 @@ export default function TradingPage() {
       <div className="grid grid-cols-1 gap-8">
         <div className="bg-[#161b22] rounded-3xl border border-gray-800 shadow-premium overflow-hidden">
           <div className="p-8 border-b border-gray-800 flex justify-between items-center bg-gray-900/20">
-            <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-3"><BarChart3 size={24} className="text-red-500" /> Active Positions</h2>
+            <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-3"><BarChart3 size={24} className="text-red-500" /> {t('activePositions')}</h2>
             {isLoading && <Loader2 className="animate-spin text-gray-500" size={20} />}
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>
                 <tr className="text-left text-[10px] text-gray-500 uppercase font-black tracking-widest border-b border-gray-800">
-                  <th className="px-8 py-5">Stock</th>
-                  <th className="px-8 py-5 text-right">Avg Price</th>
-                  <th className="px-8 py-5 text-right">Current</th>
-                  <th className="px-8 py-5 text-right">Qty</th>
-                  <th className="px-8 py-5 text-right">Return</th>
+                  <th className="px-8 py-5">{locale === 'ko' ? '종목' : 'Stock'}</th>
+                  <th className="px-8 py-5 text-right">{locale === 'ko' ? '평균가' : 'Avg Price'}</th>
+                  <th className="px-8 py-5 text-right">{locale === 'ko' ? '현재가' : 'Current'}</th>
+                  <th className="px-8 py-5 text-right">{locale === 'ko' ? '수량' : 'Qty'}</th>
+                  <th className="px-8 py-5 text-right">{locale === 'ko' ? '수익률' : 'Return'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800/50">
@@ -142,17 +144,17 @@ export default function TradingPage() {
       <div className="bg-[#161b22] rounded-3xl border border-gray-800 shadow-premium overflow-hidden">
         <div className="p-8 border-b border-gray-800 flex items-center gap-3 bg-gray-900/20">
           <History className="text-blue-500" size={24} />
-          <h2 className="text-xl font-black text-white tracking-tight">Trade History</h2>
+          <h2 className="text-xl font-black text-white tracking-tight">{t('tradeHistory')}</h2>
         </div>
         <div className="overflow-x-auto max-h-[500px] custom-scrollbar">
           <table className="min-w-full">
             <thead className="sticky top-0 bg-[#161b22] z-10 shadow-lg">
               <tr className="text-left text-[10px] text-gray-500 uppercase font-black tracking-widest border-b border-gray-800">
-                <th className="px-8 py-5">Timestamp</th>
-                <th className="px-8 py-5">Ticker</th>
-                <th className="px-8 py-5 text-center">Type</th>
-                <th className="px-8 py-5 text-right">Price</th>
-                <th className="px-8 py-5 text-right">Qty</th>
+                <th className="px-8 py-5">{locale === 'ko' ? '시간' : 'Timestamp'}</th>
+                <th className="px-8 py-5">{t('ticker')}</th>
+                <th className="px-8 py-5 text-center">{locale === 'ko' ? '구분' : 'Type'}</th>
+                <th className="px-8 py-5 text-right">{t('price')}</th>
+                <th className="px-8 py-5 text-right">{locale === 'ko' ? '수량' : 'Qty'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/50">
@@ -181,7 +183,7 @@ export default function TradingPage() {
             </div>
             <p className="text-gray-400 font-bold leading-relaxed mb-10">귀하가 설정한 전략에 따라 즉시 실전 주문이 전송될 수 있습니다. 충분한 검증을 거치셨습니까?</p>
             <div className="flex justify-end gap-4">
-              <button onClick={() => setShowConfirm(false)} className="px-6 py-3 rounded-xl text-gray-500 font-black hover:text-white transition-colors uppercase text-sm">Cancel</button>
+              <button onClick={() => setShowConfirm(false)} className="px-6 py-3 rounded-xl text-gray-500 font-black hover:text-white transition-colors uppercase text-sm">{t('cancel')}</button>
               <button onClick={confirmLive} className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-black rounded-xl shadow-lg shadow-red-500/20 uppercase text-sm">Agree & Launch</button>
             </div>
           </motion.div>

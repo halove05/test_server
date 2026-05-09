@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useLocaleStore } from '@/store/useLocaleStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import apiClient from '@/services/apiClient';
 
@@ -23,6 +24,7 @@ export default function MainLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuthStore();
+  const { t } = useLocaleStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -63,12 +65,12 @@ export default function MainLayout() {
   };
 
   const navItems = [
-    { to: '/', icon: <LayoutDashboard size={20} />, label: '대시보드' },
-    { to: '/search', icon: <Search size={20} />, label: '종목 검색' },
-    { to: '/strategy', icon: <Cpu size={20} />, label: '전략 설정' },
-    { to: '/social', icon: <Trophy size={20} />, label: '소셜 트레이딩' },
-    { to: '/trading', icon: <Wallet size={20} />, label: '투자 관리' },
-    { to: '/settings', icon: <Settings size={20} />, label: '설정' },
+    { to: '/', icon: <LayoutDashboard size={20} />, label: t('dashboard') },
+    { to: '/search', icon: <Search size={20} />, label: t('stockSearch') },
+    { to: '/strategy', icon: <Cpu size={20} />, label: t('strategySettings') },
+    { to: '/social', icon: <Trophy size={20} />, label: t('socialTrading') },
+    { to: '/trading', icon: <Wallet size={20} />, label: t('tradingManagement') },
+    { to: '/settings', icon: <Settings size={20} />, label: t('settings') },
   ];
 
   return (
@@ -95,11 +97,11 @@ export default function MainLayout() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-white truncate">{user?.email?.split('@')[0]}</p>
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Premium User</p>
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{t('premiumUser')}</p>
             </div>
           </div>
           <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-500 hover:text-red-500 hover:bg-red-500/5 transition-all font-bold text-sm">
-            <LogOut size={18} />로그아웃
+            <LogOut size={18} />{t('logout')}
           </button>
         </div>
       </aside>
@@ -114,7 +116,7 @@ export default function MainLayout() {
             </button>
             <div className="hidden md:flex items-center gap-2 bg-gray-900/50 px-3 py-1.5 rounded-full border border-gray-800">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Live Engine</span>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t('liveEngine')}</span>
             </div>
           </div>
           
@@ -181,15 +183,15 @@ export default function MainLayout() {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowNotifications(false)} className="fixed inset-0 z-40" />
             <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="fixed top-20 right-0 bottom-20 w-full sm:w-96 bg-[#161b22]/95 backdrop-blur-2xl border-l border-gray-800 shadow-2xl z-50 p-6 flex flex-col">
-              <div className="flex justify-between items-center mb-6"><h3 className="text-xl font-black text-white tracking-tighter">Notifications</h3><button onClick={() => setShowNotifications(false)} className="text-gray-500 hover:text-white"><X size={20} /></button></div>
+              <div className="flex justify-between items-center mb-6"><h3 className="text-xl font-black text-white tracking-tighter">{t('notifications')}</h3><button onClick={() => setShowNotifications(false)} className="text-gray-500 hover:text-white"><X size={20} /></button></div>
               <div className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
                 {notifications.map((n) => (
                   <NotificationItem key={n.id} {...n} time={new Date(n.timestamp).toLocaleTimeString()} />
                 ))}
-                {notifications.length === 0 && <div className="py-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">No notifications yet</div>}
+                {notifications.length === 0 && <div className="py-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">{t('noNotifications')}</div>}
               </div>
               {notifications.length > 0 && (
-                <button onClick={handleClearNotifications} className="mt-6 w-full py-3 bg-gray-800 hover:bg-gray-700 text-gray-400 font-bold rounded-xl text-xs transition-all uppercase tracking-widest">Clear All History</button>
+                <button onClick={handleClearNotifications} className="mt-6 w-full py-3 bg-gray-800 hover:bg-gray-700 text-gray-400 font-bold rounded-xl text-xs transition-all uppercase tracking-widest">{t('clearAllHistory')}</button>
               )}
             </motion.div>
           </>

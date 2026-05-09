@@ -23,6 +23,7 @@ import { kisService } from '../services/kisService';
 import { watchlistService } from '../services/watchlistService';
 import { motion } from 'framer-motion';
 import apiClient from '@/services/apiClient';
+import { useLocaleStore } from '@/store/useLocaleStore';
 
 const COLORS = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#6366f1', '#8b5cf6'];
 
@@ -37,6 +38,7 @@ export default function Dashboard() {
   const [accountSummary, setAccountSummary] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const { locale, t } = useLocaleStore();
 
   const fetchData = async () => {
     try {
@@ -104,9 +106,9 @@ export default function Dashboard() {
       {/* Welcome Section */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter">Market Overview</h1>
+          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter">{t('marketOverview')}</h1>
           <p className="text-gray-400 font-medium">
-            {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })} 실시간 데이터
+            {new Date().toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })} {t('marketOverviewDescription')}
           </p>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
@@ -136,9 +138,9 @@ export default function Dashboard() {
               <div className="p-2 bg-red-500/10 rounded-xl text-red-500">
                 <LineChart size={24} />
               </div>
-              <h2 className="text-xl font-bold text-white tracking-tight">Equity Curve</h2>
+              <h2 className="text-xl font-bold text-white tracking-tight">{locale === 'ko' ? '자산 성장 곡선' : 'Equity Curve'}</h2>
             </div>
-            <span className="text-[10px] font-black text-gray-500 bg-gray-800/50 px-3 py-1.5 rounded-full border border-gray-700 uppercase tracking-widest">Growth Analytics</span>
+            <span className="text-[10px] font-black text-gray-500 bg-gray-800/50 px-3 py-1.5 rounded-full border border-gray-700 uppercase tracking-widest">{t('growthAnalytics')}</span>
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -155,7 +157,7 @@ export default function Dashboard() {
                   contentStyle={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)' }}
                   labelStyle={{ color: '#8b949e', fontWeight: 'bold', marginBottom: '8px' }}
                   itemStyle={{ color: '#fff', fontWeight: 'black', fontSize: '16px' }}
-                  formatter={(value: any) => [`₩ ${value.toLocaleString()}`, 'Total Equity']}
+                  formatter={(value: any) => [`₩ ${value.toLocaleString()}`, locale === 'ko' ? '총 자산' : 'Total Equity']}
                 />
                 <Area type="monotone" dataKey="equity" stroke="#ef4444" strokeWidth={4} fill="url(#equityColor)" />
               </AreaChart>
@@ -167,7 +169,7 @@ export default function Dashboard() {
         <div className="bg-[#161b22] p-8 rounded-3xl border border-gray-800 shadow-premium flex flex-col items-center justify-center relative overflow-hidden">
           <div className="absolute top-8 left-8 flex items-center gap-2">
             <Gauge size={18} className="text-blue-500" />
-            <h2 className="text-sm font-black text-white uppercase tracking-widest">Global Pulse</h2>
+            <h2 className="text-sm font-black text-white uppercase tracking-widest">{t('globalPulse')}</h2>
           </div>
           
           <div className="relative mt-8">
@@ -205,16 +207,16 @@ export default function Dashboard() {
             <div className="p-2 bg-yellow-500/10 rounded-xl text-yellow-500">
               <Star size={24} className="fill-current" />
             </div>
-            <h2 className="text-xl font-bold text-white tracking-tight">Active Watchlist</h2>
+            <h2 className="text-xl font-bold text-white tracking-tight">{locale === 'ko' ? '관심 종목' : 'Active Watchlist'}</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>
                 <tr className="text-left text-[10px] text-gray-500 uppercase font-black tracking-widest border-b border-gray-800">
-                  <th className="pb-4 pl-2">Ticker</th>
-                  <th className="pb-4 text-right">Price</th>
-                  <th className="pb-4 text-right">Day Change</th>
-                  <th className="pb-4 text-center">Action</th>
+                  <th className="pb-4 pl-2">{t('ticker')}</th>
+                  <th className="pb-4 text-right">{t('price')}</th>
+                  <th className="pb-4 text-right">{t('dayChange')}</th>
+                  <th className="pb-4 text-center">{locale === 'ko' ? '관리' : 'Action'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800/50">
@@ -250,7 +252,7 @@ export default function Dashboard() {
               <div className="p-2 bg-blue-500/10 rounded-xl text-blue-500">
                 <PieIcon size={20} />
               </div>
-              <h2 className="text-lg font-bold text-white">Allocation</h2>
+              <h2 className="text-lg font-bold text-white">{t('allocation')}</h2>
             </div>
             <div className="h-[180px] w-full mb-4">
               <ResponsiveContainer width="100%" height="100%">
@@ -281,7 +283,7 @@ export default function Dashboard() {
               <div className="p-2 bg-red-500/10 rounded-xl text-red-500">
                 <Zap size={20} />
               </div>
-              <h2 className="text-lg font-bold text-white">Market Pulse</h2>
+              <h2 className="text-lg font-bold text-white">{t('marketPulse')}</h2>
             </div>
             <div className="space-y-4">
               {movers.gainers.slice(0, 3).map((stock) => (

@@ -4,6 +4,7 @@ import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianG
 import { strategyService } from '../services/strategyService';
 import type { Condition, Strategy } from '../services/strategyService';
 import { motion } from 'framer-motion';
+import { useLocaleStore } from '@/store/useLocaleStore';
 
 export default function StrategyPage() {
   const [conditions, setConditions] = useState<Condition[]>([{ id: 1, type: 'RSI', operator: '<=', value: 30, action: 'BUY' }]);
@@ -17,6 +18,7 @@ export default function StrategyPage() {
   const [period, setPeriod] = useState(30);
   const [isBacktesting, setIsBacktesting] = useState(false);
   const [backtestResult, setBacktestResult] = useState<any>(null);
+  const { locale, t } = useLocaleStore();
 
   useEffect(() => { fetchStrategies(); }, []);
 
@@ -46,12 +48,12 @@ export default function StrategyPage() {
     <div className="space-y-6 pb-20 animate-in fade-in duration-700">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter">Strategy Lab</h1>
-          <p className="text-gray-500 font-bold">알고리즘 설계 및 과거 성과 시뮬레이션</p>
+          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter">{t('strategyLab')}</h1>
+          <p className="text-gray-500 font-bold">{t('strategyLabDescription')}</p>
         </div>
         <div className="flex gap-4">
-          <button onClick={handleBacktest} disabled={isBacktesting} className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-2xl font-black transition-all shadow-premium"><Play size={20} /> RUN TEST</button>
-          <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-2xl font-black transition-all shadow-lg shadow-red-500/20"><Save size={20} /> SAVE LAB</button>
+          <button onClick={handleBacktest} disabled={isBacktesting} className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-2xl font-black transition-all shadow-premium"><Play size={20} /> {t('runTest')}</button>
+          <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-2xl font-black transition-all shadow-lg shadow-red-500/20"><Save size={20} /> {t('saveLab')}</button>
         </div>
       </div>
 
@@ -59,8 +61,8 @@ export default function StrategyPage() {
         <div className="lg:col-span-3 space-y-8">
           <div className="bg-[#161b22] p-8 rounded-3xl border border-gray-800 shadow-premium min-h-[400px]">
             <div className="flex items-center justify-between mb-8 border-b border-gray-800 pb-6">
-              <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-3"><Settings2 className="text-orange-500" /> Condition Blocks</h2>
-              <button onClick={() => setConditions([...conditions, { id: Date.now(), type: 'PRICE', operator: '<=', value: 70000, action: 'BUY' }])} className="text-xs bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all font-bold">ADD BLOCK</button>
+              <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-3"><Settings2 className="text-orange-500" /> {locale === 'ko' ? '조건 블록' : 'Condition Blocks'}</h2>
+              <button onClick={() => setConditions([...conditions, { id: Date.now(), type: 'PRICE', operator: '<=', value: 70000, action: 'BUY' }])} className="text-xs bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all font-bold">{locale === 'ko' ? '블록 추가' : 'ADD BLOCK'}</button>
             </div>
             <div className="space-y-4">
               {conditions.map((cond, index) => (
@@ -87,12 +89,12 @@ export default function StrategyPage() {
           {backtestResult && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-[#161b22] p-8 rounded-3xl border border-gray-800 shadow-premium space-y-10">
               <div className="flex items-center justify-between border-b border-gray-800 pb-6">
-                <h2 className="text-2xl font-black text-white tracking-tighter flex items-center gap-3"><BarChart3 className="text-red-500" /> Simulation Analytics</h2>
-                <span className="text-gray-500 text-[10px] font-black uppercase tracking-widest">{targetSymbol} / {period} Days</span>
+                <h2 className="text-2xl font-black text-white tracking-tighter flex items-center gap-3"><BarChart3 className="text-red-500" /> {locale === 'ko' ? '시뮬레이션 분석' : 'Simulation Analytics'}</h2>
+                <span className="text-gray-500 text-[10px] font-black uppercase tracking-widest">{targetSymbol} / {period} {locale === 'ko' ? '일' : 'Days'}</span>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                 <div><p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">Return</p><p className={`text-3xl font-black tracking-tighter ${backtestResult.totalReturn >= 0 ? 'text-red-500' : 'text-blue-500'}`}>{backtestResult.totalReturn}%</p></div>
-                <div><p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">Win Rate</p><p className="text-3xl font-black text-white tracking-tighter">{backtestResult.winRate}%</p></div>
+                <div><p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">{t('winRate')}</p><p className="text-3xl font-black text-white tracking-tighter">{backtestResult.winRate}%</p></div>
                 <div><p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">Max Drawdown</p><p className="text-3xl font-black text-blue-400 tracking-tighter">{backtestResult.maxDrawdown}%</p></div>
                 <div><p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">Sharpe Ratio</p><p className="text-3xl font-black text-orange-400 tracking-tighter">{backtestResult.sharpeRatio}</p></div>
               </div>
@@ -114,7 +116,7 @@ export default function StrategyPage() {
 
         <div className="space-y-8">
           <div className="bg-[#161b22] p-6 rounded-3xl border border-gray-800 shadow-premium">
-            <h2 className="text-sm font-black text-white mb-6 uppercase tracking-widest flex items-center gap-2"><FolderOpen size={16} className="text-blue-500" /> Strategy Library</h2>
+            <h2 className="text-sm font-black text-white mb-6 uppercase tracking-widest flex items-center gap-2"><FolderOpen size={16} className="text-blue-500" /> {locale === 'ko' ? '전략 보관함' : 'Strategy Library'}</h2>
             <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
               {savedStrategies.map((s) => (
                 <div key={s.id} className="group p-4 bg-gray-900/40 rounded-2xl border border-gray-800 hover:border-gray-600 cursor-pointer transition-all" onClick={() => { setStrategyName(s.name); setConditions(s.conditions); setInvestment(s.investmentPerOrder); setIsStopLossActive(s.isStopLossActive); setBacktestResult(null); }}>
@@ -125,10 +127,10 @@ export default function StrategyPage() {
             </div>
           </div>
           <div className="bg-[#161b22] p-8 rounded-3xl border border-gray-800 shadow-premium space-y-6">
-            <h2 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2"><Target size={16} className="text-red-500" /> Simulation Settings</h2>
+            <h2 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2"><Target size={16} className="text-red-500" /> {locale === 'ko' ? '시뮬레이션 설정' : 'Simulation Settings'}</h2>
             <div className="space-y-4">
-              <div><label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1 mb-2 block">Ticker</label><input type="text" className="w-full bg-[#0d1117] border border-gray-800 rounded-2xl px-5 py-4 text-white font-black" value={targetSymbol} onChange={(e) => setTargetSymbol(e.target.value)} /></div>
-              <div><label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1 mb-2 block">Window (Days)</label><select className="w-full bg-[#0d1117] border border-gray-800 rounded-2xl px-5 py-4 text-white font-black" value={period} onChange={(e) => setPeriod(parseInt(e.target.value))}><option value={7}>7 DAYS</option><option value={30}>30 DAYS</option><option value={90}>90 DAYS</option><option value={365}>1 YEAR</option></select></div>
+              <div><label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1 mb-2 block">{t('ticker')}</label><input type="text" className="w-full bg-[#0d1117] border border-gray-800 rounded-2xl px-5 py-4 text-white font-black" value={targetSymbol} onChange={(e) => setTargetSymbol(e.target.value)} /></div>
+              <div><label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1 mb-2 block">{locale === 'ko' ? '기간' : 'Window (Days)'}</label><select className="w-full bg-[#0d1117] border border-gray-800 rounded-2xl px-5 py-4 text-white font-black" value={period} onChange={(e) => setPeriod(parseInt(e.target.value))}><option value={7}>7 {locale === 'ko' ? '일' : 'DAYS'}</option><option value={30}>30 {locale === 'ko' ? '일' : 'DAYS'}</option><option value={90}>90 {locale === 'ko' ? '일' : 'DAYS'}</option><option value={365}>1 {locale === 'ko' ? '년' : 'YEAR'}</option></select></div>
             </div>
           </div>
           <div className="bg-red-500/10 p-6 rounded-3xl border border-red-500/10 flex gap-4">

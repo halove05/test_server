@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Shield, Key, Bell, Save, AlertTriangle, Eye, EyeOff, CheckCircle2, Loader2 } from 'lucide-react';
 import apiClient from '../services/apiClient';
+import { useLocaleStore } from '@/store/useLocaleStore';
 
 export default function SettingsPage() {
   const [showApiKey, setShowApiKey] = useState(false);
@@ -13,6 +14,7 @@ export default function SettingsPage() {
   const [accountNo, setAccountNo] = useState('');
   const [dailyLossLimit, setDailyLossLimit] = useState(5);
   const [maxInvestmentPerStock, setMaxInvestmentPerStock] = useState(20);
+  const { locale, setLocale, t } = useLocaleStore();
 
   useEffect(() => {
     fetchProfile();
@@ -65,32 +67,47 @@ export default function SettingsPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       <section>
-        <h1 className="text-3xl font-bold text-white mb-2">설정</h1>
-        <p className="text-gray-400">증권사 API 연동 및 리스크 관리 설정을 관리합니다.</p>
+        <h1 className="text-3xl font-bold text-white mb-2">{t('settings')}</h1>
+        <p className="text-gray-400">{t('settingsDescription')}</p>
       </section>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="space-y-2">
           <button className="w-full flex items-center gap-3 px-4 py-3 bg-red-500 text-white rounded-xl font-medium transition-all shadow-lg shadow-red-500/10">
             <Key size={20} />
-            API 및 리스크 설정
+            {t('apiRiskSettings')}
           </button>
         </div>
 
         <div className="md:col-span-2 space-y-6">
+          <div className="bg-[#161b22] p-8 rounded-2xl border border-gray-800 space-y-5 shadow-xl">
+            <div>
+              <h2 className="text-xl font-bold text-white">{t('language')}</h2>
+              <p className="text-sm text-gray-500 mt-1">{t('languageDescription')}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 rounded-2xl bg-[#0d1117] p-1.5">
+              <button onClick={() => setLocale('ko')} className={`rounded-xl py-3 text-sm font-black transition-all ${locale === 'ko' ? 'bg-red-600 text-white shadow-lg shadow-red-500/20' : 'text-gray-500 hover:text-white'}`}>
+                한국어
+              </button>
+              <button onClick={() => setLocale('en')} className={`rounded-xl py-3 text-sm font-black transition-all ${locale === 'en' ? 'bg-red-600 text-white shadow-lg shadow-red-500/20' : 'text-gray-500 hover:text-white'}`}>
+                English
+              </button>
+            </div>
+          </div>
+
           {/* Brokerage Selection */}
           <div className="bg-[#161b22] p-8 rounded-2xl border border-gray-800 space-y-6 shadow-xl">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-blue-500/10 rounded-lg text-blue-500">
                 <Key size={24} />
               </div>
-              <h2 className="text-xl font-bold text-white">증권사 API 설정</h2>
+              <h2 className="text-xl font-bold text-white">{t('apiSettings')}</h2>
             </div>
 
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">APP Key</label>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">{t('appKey')}</label>
                   <div className="relative">
                     <input 
                       type={showApiKey ? "text" : "password"}
@@ -106,7 +123,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">APP Secret</label>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">{t('appSecret')}</label>
                   <input 
                     type="password"
                     value={appSecret}
@@ -127,7 +144,7 @@ export default function SettingsPage() {
                   />
                 </div>
               </div>
-              <button onClick={handleSaveKeys} className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold transition-all">API 키 저장</button>
+              <button onClick={handleSaveKeys} className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold transition-all">{t('saveApiKeys')}</button>
             </div>
           </div>
 
@@ -137,12 +154,12 @@ export default function SettingsPage() {
               <div className="p-2 bg-orange-500/10 rounded-lg text-orange-500">
                 <Shield size={24} />
               </div>
-              <h2 className="text-xl font-bold text-white">리스크 관리 설정</h2>
+              <h2 className="text-xl font-bold text-white">{t('riskSettings')}</h2>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">1일 최대 손실 한도 (%)</label>
+                <label className="block text-sm font-medium text-gray-400 mb-2">{t('dailyLossLimit')}</label>
                 <input 
                   type="number"
                   value={dailyLossLimit}
@@ -151,7 +168,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">종목당 최대 투자 비중 (%)</label>
+                <label className="block text-sm font-medium text-gray-400 mb-2">{t('maxInvestmentPerStock')}</label>
                 <input 
                   type="number"
                   value={maxInvestmentPerStock}
@@ -160,7 +177,7 @@ export default function SettingsPage() {
                 />
               </div>
             </div>
-            <button onClick={handleSaveRisk} className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold transition-all">리스크 설정 저장</button>
+            <button onClick={handleSaveRisk} className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold transition-all">{t('saveRiskSettings')}</button>
           </div>
 
           {isSaved && (
