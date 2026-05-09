@@ -1,95 +1,122 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, Mail, Lock, LogIn } from 'lucide-react';
-import { useAuthStore } from '@/store/useAuthStore';
+import { Mail, Lock, Loader2, ArrowRight, TrendingUp } from 'lucide-react';
+import apiClient from '../services/apiClient';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  
   const navigate = useNavigate();
-  const login = useAuthStore(state => state.login);
+  const loginStore = useAuthStore((state) => state.login);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // 가짜 로그인 처리
-    login({ id: '1', email: 'test@quantwave.test', name: '김투자' });
-    navigate('/');
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const endpoint = isLogin ? '/auth/login' : '/auth/signup';
+      const response = await apiClient.post(endpoint, { email, password });
+      
+      loginStore(response.data.token, response.data.user);
+      navigate('/');
+    } catch (err: any) {
+      setError(err.response?.data?.error || '인증에 실패했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0e14] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center items-center gap-2 mb-8">
-          <TrendingUp className="text-red-500 w-12 h-12" />
-          <span className="text-4xl font-bold bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
-            QuantWave
-          </span>
+    <div className="min-h-screen bg-[#0d1117] flex flex-col items-center justify-center p-4">
+      {/* Brand Logo */}
+      <div className="flex items-center gap-3 mb-12 animate-in fade-in slide-in-from-top-4 duration-700">
+        <div className="w-12 h-12 bg-red-500 rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/20">
+          <TrendingUp className="text-white" size={28} />
         </div>
-        <h2 className="text-center text-3xl font-extrabold text-white">
-          {isLogin ? '계정에 로그인하세요' : '새 계정 만들기'}
-        </h2>
+        <h1 className="text-3xl font-black text-white tracking-tighter">QuantWave</h1>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-[#161b22] py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-800">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {!isLogin && (
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-300">이름</label>
-                <div className="mt-1">
-                  <input id="name" name="name" type="text" required className="appearance-none block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm bg-gray-900 text-white" />
-                </div>
-              </div>
-            )}
+      <div className="w-full max-w-md bg-[#161b22] p-10 rounded-3xl border border-gray-800 shadow-2xl animate-in zoom-in-95 duration-500">
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-white mb-2">
+            {isLogin ? '다시 오신 것을 환영합니다' : '새로운 시작을 함께하세요'}
+          </h2>
+          <p className="text-gray-400 text-sm">
+            {isLogin ? '계정에 로그인하여 자동매매를 관리하세요.' : '간단한 가입으로 인공지능 트레이딩을 시작하세요.'}
+          </p>
+        </div>
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300">이메일 주소</label>
-              <div className="mt-1 relative rounded-md shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-500" />
-                </div>
-                <input id="email" name="email" type="email" autoComplete="email" required className="appearance-none block w-full pl-10 px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm bg-gray-900 text-white" placeholder="you@example.com" />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300">비밀번호</label>
-              <div className="mt-1 relative rounded-md shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-500" />
-                </div>
-                <input id="password" name="password" type="password" autoComplete="current-password" required className="appearance-none block w-full pl-10 px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm bg-gray-900 text-white" placeholder="••••••••" />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-700 rounded bg-gray-900" />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-300">
-                  로그인 상태 유지
-                </label>
-              </div>
-
-              {isLogin && (
-                <div className="text-sm">
-                  <a href="#" className="font-medium text-red-500 hover:text-red-400">
-                    비밀번호를 잊으셨나요?
-                  </a>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <button type="submit" className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-gray-900">
-                {isLogin ? <><LogIn className="mr-2 h-5 w-5" /> 로그인</> : '회원가입'}
-              </button>
-            </div>
-          </form>
-
-          <div className="mt-6 text-center">
-            <button onClick={() => setIsLogin(!isLogin)} className="text-sm text-gray-400 hover:text-white transition-colors">
-              {isLogin ? "계정이 없으신가요? 회원가입" : "이미 계정이 있으신가요? 로그인"}
-            </button>
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm font-medium animate-in shake duration-300">
+            {error}
           </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider">이메일 주소</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Mail className="h-5 w-5 text-gray-600" />
+              </div>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="block w-full pl-11 pr-4 py-3.5 bg-[#0d1117] border border-gray-700 rounded-xl text-white placeholder-gray-600 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                placeholder="name@company.com"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider">비밀번호</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Lock className="h-5 w-5 text-gray-600" />
+              </div>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="block w-full pl-11 pr-4 py-3.5 bg-[#0d1117] border border-gray-700 rounded-xl text-white placeholder-gray-600 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full mt-4 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 group disabled:opacity-50"
+          >
+            {isLoading ? (
+              <Loader2 className="animate-spin" size={20} />
+            ) : (
+              <>
+                {isLogin ? '로그인' : '회원가입'}
+                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+              </>
+            )}
+          </button>
+        </form>
+
+        <div className="mt-10 pt-8 border-t border-gray-800 text-center">
+          <button
+            onClick={() => { setIsLogin(!isLogin); setError(''); }}
+            className="text-gray-400 hover:text-white text-sm font-medium transition-colors"
+          >
+            {isLogin ? '아직 계정이 없으신가요?' : '이미 계정이 있으신가요?'} 
+            <span className="text-red-500 ml-2 font-bold">{isLogin ? '회원가입' : '로그인'}</span>
+          </button>
         </div>
       </div>
     </div>

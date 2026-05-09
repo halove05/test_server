@@ -79,24 +79,29 @@ src/
 ├── layouts/         # 기본 레이아웃 (Navbar, Sidebar)
 ├── pages/           # 라우팅 페이지
 ├── services/        # API 호출 함수 (axios)
+│   ├── apiClient.ts    # axios 인스턴스 설정
+│   ├── marketService.ts # 시세 및 지수 서비스
+│   ├── kisService.ts    # 한국투자증권 연동 서비스
+│   └── newsService.ts   # 뉴스 데이터 서비스
 ├── store/           # 전역 상태 관리 (Zustand)
+│   ├── useAuthStore.ts
+│   └── useMarketStore.ts
 ├── types/           # TypeScript 타입 정의
 ├── utils/           # 유틸 함수
 ├── App.tsx
 └── main.tsx
 ```
 
-## 12. 백엔드 폴더 구조 (Node.js Express 예시)
+## 12. 백엔드 구조 (Cloudflare Pages Functions)
 ```
-server/
-├── config/          # DB, 환경변수 설정
-├── controllers/     # API 엔드포인트 핸들러
-├── middlewares/     # JWT 검증, 에러 핸들링
-├── models/          # DB 스키마
-├── routes/          # API 라우팅
-├── services/        # 증권사 API 연동
-├── engine/          # 자동매매 검사 엔진
-└── app.js
+functions/
+└── api/
+    └── [[path]].js  # /api/* 요청 처리
+
+public/
+└── _routes.json     # Functions 라우팅 제한
+
+wrangler.toml        # Pages/KV 바인딩 설정
 ```
 
 ## 13. 주요 코드 예시
@@ -104,7 +109,8 @@ server/
 
 ## 14. 실행 방법
 1.  **Frontend:** `npm install` -> `npm run dev`
-2.  **Backend:** `npm install` -> 환경변수 설정 -> `npm run start`
+2.  **Cloudflare 로컬:** `npm run pages:dev`
+3.  **배포:** Cloudflare Pages에서 Build command `npm run build`, output `dist`, KV binding `KV` 설정
 
 ## 15. 확장 가능 기능
 *   AI 뉴스 감성 분석 기반 투자 신호 생성

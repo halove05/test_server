@@ -1,152 +1,190 @@
-import { useState } from 'react';
-import { AlertTriangle, Power, PowerOff, ShieldAlert } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AlertTriangle, Power, PowerOff, ShieldAlert, Loader2, History, BarChart3, TrendingUp, TrendingDown } from 'lucide-react';
+import { kisService } from '../services/kisService';
+import { motion } from 'framer-motion';
 
 export default function TradingPage() {
   const [isLiveActive, setIsLiveActive] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [mode, setMode] = useState<'mock' | 'real'>('mock');
+  const [summary, setSummary] = useState<any>(null);
+  const [holdings, setHoldings] = useState<any[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleToggle = () => {
-    if (!isLiveActive) {
-      if (mode === 'real') {
-        setShowConfirm(true);
-      } else {
-        setIsLiveActive(true);
-      }
-    } else {
-      setIsLiveActive(false);
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [balance, tradeLogs] = await Promise.all([
+        kisService.getAccountBalance(mode),
+        kisService.getTradeLogs(mode)
+      ]);
+      setSummary(balance);
+      setHoldings(balance.holdings || []);
+      setLogs(tradeLogs.reverse());
+    } catch (error) {
+      console.error('Failed to fetch data', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const positions = [
-    { symbol: '005930', name: '삼성전자', avgPrice: 72000, currentPrice: 74100, qty: 100, return: 2.91 },
-    { symbol: 'TSLA', name: 'Tesla', avgPrice: 180.50, currentPrice: 175.22, qty: 10, return: -2.92 },
-  ];
+  useEffect(() => {
+    fetchData();
+  }, [mode]);
+
+  const handleToggle = async () => {
+    if (!isLiveActive) {
+      if (mode === 'real') { setShowConfirm(true); return; }
+      try { await kisService.toggleEngine(true, mode); setIsLiveActive(true); } catch (error) { console.error(error); }
+    } else {
+      try { await kisService.toggleEngine(false, mode); setIsLiveActive(false); } catch (error) { console.error(error); }
+    }
+  };
+
+  const confirmLive = async () => {
+    try { await kisService.toggleEngine(true, 'real'); setIsLiveActive(true); setShowConfirm(false); } catch (error) { alert('실패'); }
+  };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-20 animate-in fade-in duration-700">
       <div>
-        <h1 className="text-3xl font-bold text-white mb-2">투자 관리 (Trading)</h1>
-        <p className="text-gray-400">설정된 전략을 바탕으로 모의투자 및 실제투자를 실행하고 관리합니다.</p>
+        <h1 className="text-4xl font-black text-white mb-2 tracking-tighter">Trading Station</h1>
+        <p className="text-gray-500 font-bold">자동매매 엔진 및 실시간 포트폴리오 관리</p>
       </div>
 
-      {/* Mode Selector & Status */}
-      <div className="bg-[#161b22] p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="flex gap-2 p-1 bg-gray-900 rounded-lg">
-          <button 
-            onClick={() => setMode('mock')}
-            className={`px-6 py-2 rounded-md font-bold transition-all ${mode === 'mock' ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-          >
-            모의투자
-          </button>
-          <button 
-            onClick={() => setMode('real')}
-            className={`px-6 py-2 rounded-md font-bold transition-all flex items-center gap-2 ${mode === 'real' ? 'bg-red-500/10 text-red-500 shadow' : 'text-gray-500 hover:text-gray-300'}`}
-          >
-            <ShieldAlert size={16} /> 실제투자
-          </button>
+      {/* Mode & Engine Control */}
+      <div className="bg-[#161b22] p-8 rounded-3xl border border-gray-800 shadow-premium flex flex-col md:flex-row justify-between items-center gap-8">
+        <div className="flex p-1.5 bg-[#0d1117] rounded-2xl">
+          <button onClick={() => setMode('mock')} className={`px-8 py-3 rounded-xl font-black text-sm transition-all ${mode === 'mock' ? 'bg-[#1f242c] text-white shadow-premium' : 'text-gray-500'}`}>PAPER TRADING</button>
+          <button onClick={() => setMode('real')} className={`px-8 py-3 rounded-xl font-black text-sm transition-all flex items-center gap-2 ${mode === 'real' ? 'bg-red-500/10 text-red-500 shadow-glow-red' : 'text-gray-500'}`}><ShieldAlert size={16} /> LIVE TRADING</button>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6">
           <div className="text-right">
-            <p className="text-sm text-gray-400">자동매매 엔진 상태</p>
-            <p className={`font-bold ${isLiveActive ? 'text-green-500' : 'text-gray-500'}`}>
-              {isLiveActive ? '가동 중 (ON)' : '정지됨 (OFF)'}
-            </p>
+            <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">Engine Status</p>
+            <p className={`font-black text-lg tracking-tight ${isLiveActive ? 'text-green-500' : 'text-gray-500'}`}>{isLiveActive ? 'ACTIVE (ON)' : 'STANDBY (OFF)'}</p>
           </div>
-          <button 
-            onClick={handleToggle}
-            className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg ${
-              isLiveActive 
-                ? 'bg-green-500 hover:bg-green-600 shadow-green-500/20' 
-                : 'bg-gray-800 hover:bg-gray-700 shadow-none'
-            }`}
-          >
-            {isLiveActive ? <Power size={24} className="text-white" /> : <PowerOff size={24} className="text-gray-400" />}
+          <button onClick={handleToggle} className={`w-20 h-20 rounded-3xl flex items-center justify-center transition-all shadow-premium active:scale-95 ${isLiveActive ? 'bg-green-600 shadow-green-500/10' : 'bg-gray-800'}`}>
+            {isLiveActive ? <Power size={32} className="text-white" /> : <PowerOff size={32} className="text-gray-400" />}
           </button>
         </div>
       </div>
 
-      {/* Live Warning Notice */}
-      {mode === 'real' && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex gap-4">
-          <AlertTriangle className="text-red-500 shrink-0" />
-          <div>
-            <h4 className="text-red-500 font-bold mb-1">실제 투자 모드 주의사항</h4>
-            <p className="text-sm text-gray-300">
-              현재 증권사 API와 연동되어 <span className="font-bold text-red-400">실제 자산으로 매매가 이루어집니다.</span>
-              플랫폼은 설정된 알고리즘을 기계적으로 실행할 뿐이며, 시스템 오류나 급격한 시장 변동으로 인한 손실 책임은 전적으로 사용자에게 있습니다.
-            </p>
+      {/* Performance Analytics Grid */}
+      {summary?.metrics && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-[#161b22] p-6 rounded-3xl border border-gray-800 shadow-premium">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Win Rate</p>
+            <h3 className="text-3xl font-black text-white tracking-tighter">{summary.metrics.winRate}%</h3>
+            <div className="mt-4 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+              <div className="h-full bg-green-500" style={{ width: `${summary.metrics.winRate}%` }}></div>
+            </div>
+          </div>
+          <div className="bg-[#161b22] p-6 rounded-3xl border border-gray-800 shadow-premium">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Profit Factor</p>
+            <h3 className={`text-3xl font-black tracking-tighter ${summary.metrics.profitFactor >= 1.5 ? 'text-green-500' : 'text-white'}`}>{summary.metrics.profitFactor}</h3>
+            <p className="text-[10px] text-gray-600 font-bold mt-2">Gross Profit / Gross Loss</p>
+          </div>
+          <div className="bg-[#161b22] p-6 rounded-3xl border border-gray-800 shadow-premium">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Avg Gain / Loss</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl font-black text-red-500">+{summary.metrics.avgGain?.toLocaleString()}</span>
+              <span className="text-gray-700">/</span>
+              <span className="text-xl font-black text-blue-500">-{summary.metrics.avgLoss?.toLocaleString()}</span>
+            </div>
+          </div>
+          <div className="bg-[#161b22] p-6 rounded-3xl border border-gray-800 shadow-premium">
+            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Total Executed</p>
+            <h3 className="text-3xl font-black text-white tracking-tighter">{summary.metrics.totalTrades} <span className="text-sm text-gray-600">Orders</span></h3>
           </div>
         </div>
       )}
 
-      {/* Positions Table */}
-      <div className="bg-[#161b22] rounded-2xl border border-gray-800 overflow-hidden shadow-xl">
-        <div className="p-6 border-b border-gray-800">
-          <h2 className="text-lg font-bold text-white">보유 종목 (포지션)</h2>
+      {/* Holdings & Logs */}
+      <div className="grid grid-cols-1 gap-8">
+        <div className="bg-[#161b22] rounded-3xl border border-gray-800 shadow-premium overflow-hidden">
+          <div className="p-8 border-b border-gray-800 flex justify-between items-center bg-gray-900/20">
+            <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-3"><BarChart3 size={24} className="text-red-500" /> Active Positions</h2>
+            {isLoading && <Loader2 className="animate-spin text-gray-500" size={20} />}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="text-left text-[10px] text-gray-500 uppercase font-black tracking-widest border-b border-gray-800">
+                  <th className="px-8 py-5">Stock</th>
+                  <th className="px-8 py-5 text-right">Avg Price</th>
+                  <th className="px-8 py-5 text-right">Current</th>
+                  <th className="px-8 py-5 text-right">Qty</th>
+                  <th className="px-8 py-5 text-right">Return</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800/50">
+                {holdings.map((pos) => (
+                  <tr key={pos.symbol} className="hover:bg-gray-800/20 transition-colors">
+                    <td className="px-8 py-6">
+                      <p className="text-sm font-black text-white">{pos.name}</p>
+                      <p className="text-[10px] text-gray-600 font-bold uppercase">{pos.symbol}</p>
+                    </td>
+                    <td className="px-8 py-6 text-right text-gray-400 font-bold">₩ {pos.averagePrice?.toLocaleString()}</td>
+                    <td className="px-8 py-6 text-right font-black text-white">₩ {pos.currentPrice?.toLocaleString()}</td>
+                    <td className="px-8 py-6 text-right text-gray-400 font-bold">{pos.quantity}</td>
+                    <td className={`px-8 py-6 text-right font-black text-lg ${pos.profitRate >= 0 ? 'text-red-500' : 'text-blue-500'}`}>{pos.profitRate > 0 ? '+' : ''}{pos.profitRate}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <table className="min-w-full divide-y divide-gray-800">
-          <thead className="bg-gray-900/50">
-            <tr>
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase">종목</th>
-              <th className="px-6 py-4 text-right text-xs font-medium text-gray-400 uppercase">평단가</th>
-              <th className="px-6 py-4 text-right text-xs font-medium text-gray-400 uppercase">현재가</th>
-              <th className="px-6 py-4 text-right text-xs font-medium text-gray-400 uppercase">수량</th>
-              <th className="px-6 py-4 text-right text-xs font-medium text-gray-400 uppercase">수익률</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-800">
-            {positions.map((pos) => (
-              <tr key={pos.symbol} className="hover:bg-gray-800/50">
-                <td className="px-6 py-4">
-                  <div className="font-bold text-white">{pos.name}</div>
-                  <div className="text-xs text-gray-500">{pos.symbol}</div>
-                </td>
-                <td className="px-6 py-4 text-right text-gray-300">
-                  {pos.avgPrice.toLocaleString()}
-                </td>
-                <td className="px-6 py-4 text-right font-medium text-white">
-                  {pos.currentPrice.toLocaleString()}
-                </td>
-                <td className="px-6 py-4 text-right text-gray-300">
-                  {pos.qty}
-                </td>
-                <td className={`px-6 py-4 text-right font-bold ${pos.return > 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                  {pos.return > 0 ? '+' : ''}{pos.return}%
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
 
-      {/* Warning Modal */}
+      {/* Trade Logs */}
+      <div className="bg-[#161b22] rounded-3xl border border-gray-800 shadow-premium overflow-hidden">
+        <div className="p-8 border-b border-gray-800 flex items-center gap-3 bg-gray-900/20">
+          <History className="text-blue-500" size={24} />
+          <h2 className="text-xl font-black text-white tracking-tight">Trade History</h2>
+        </div>
+        <div className="overflow-x-auto max-h-[500px] custom-scrollbar">
+          <table className="min-w-full">
+            <thead className="sticky top-0 bg-[#161b22] z-10 shadow-lg">
+              <tr className="text-left text-[10px] text-gray-500 uppercase font-black tracking-widest border-b border-gray-800">
+                <th className="px-8 py-5">Timestamp</th>
+                <th className="px-8 py-5">Ticker</th>
+                <th className="px-8 py-5 text-center">Type</th>
+                <th className="px-8 py-5 text-right">Price</th>
+                <th className="px-8 py-5 text-right">Qty</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-800/50">
+              {logs.map((log, idx) => (
+                <tr key={idx} className="hover:bg-gray-800/20 transition-colors">
+                  <td className="px-8 py-5 text-[10px] text-gray-600 font-bold">{new Date(log.timestamp).toLocaleString()}</td>
+                  <td className="px-8 py-5 text-sm font-black text-white">{log.name}</td>
+                  <td className="px-8 py-5 text-center">
+                    <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase ${log.orderType === 'BUY' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>{log.orderType}</span>
+                  </td>
+                  <td className="px-8 py-5 text-right text-sm font-black text-white">₩ {log.price?.toLocaleString()}</td>
+                  <td className="px-8 py-5 text-right text-[10px] text-gray-500 font-bold">{log.quantity} SHARES</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {showConfirm && (
-        <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-50 p-4">
-          <div className="bg-gray-900 p-8 rounded-2xl max-w-lg border border-red-500 shadow-2xl">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 bg-red-500/20 rounded-full">
-                <AlertTriangle className="text-red-500 w-8 h-8" />
-              </div>
-              <h2 className="text-2xl text-white font-bold">실제 자동매매 시작</h2>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex justify-center items-center z-50 p-4">
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-[#161b22] p-10 rounded-3xl max-w-lg border border-red-500/30 shadow-2xl">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-4 bg-red-500/20 rounded-2xl"><AlertTriangle className="text-red-500" size={32} /></div>
+              <h2 className="text-2xl text-white font-black tracking-tighter">실제 자동매매 가동</h2>
             </div>
-            <p className="text-gray-300 mb-6 leading-relaxed">
-              자동매매 엔진을 켜면 귀하가 설정한 전략에 따라 <strong className="text-red-400">즉시 시장가 혹은 지정가로 주문이 전송</strong>될 수 있습니다. 
-              충분한 모의투자(백테스트)를 거쳤는지 확인하세요.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setShowConfirm(false)} className="px-5 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800 transition-colors">
-                취소
-              </button>
-              <button 
-                onClick={() => { setIsLiveActive(true); setShowConfirm(false); }} 
-                className="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold transition-colors shadow-lg shadow-red-500/20"
-              >
-                동의하고 엔진 가동
-              </button>
+            <p className="text-gray-400 font-bold leading-relaxed mb-10">귀하가 설정한 전략에 따라 즉시 실전 주문이 전송될 수 있습니다. 충분한 검증을 거치셨습니까?</p>
+            <div className="flex justify-end gap-4">
+              <button onClick={() => setShowConfirm(false)} className="px-6 py-3 rounded-xl text-gray-500 font-black hover:text-white transition-colors uppercase text-sm">Cancel</button>
+              <button onClick={confirmLive} className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-black rounded-xl shadow-lg shadow-red-500/20 uppercase text-sm">Agree & Launch</button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
     </div>
