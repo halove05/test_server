@@ -95,6 +95,8 @@ const defaultSocial = {
 };
 
 const textEncoder = new TextEncoder();
+const memoryStore = globalThis.__QUANTWAVE_MEMORY_STORE__ || new Map();
+globalThis.__QUANTWAVE_MEMORY_STORE__ = memoryStore;
 
 function response(data, init = {}) {
   return new Response(JSON.stringify(data), { ...init, headers: { ...jsonHeaders, ...(init.headers || {}) } });
@@ -151,11 +153,18 @@ async function verifyToken(token, secret) {
 }
 
 async function getKV(env, key, fallback) {
+  if (!env.KV) {
+    return memoryStore.has(key) ? JSON.parse(memoryStore.get(key)) : fallback;
+  }
   const raw = await env.KV.get(key);
   return raw ? JSON.parse(raw) : fallback;
 }
 
 async function putKV(env, key, data) {
+  if (!env.KV) {
+    memoryStore.set(key, JSON.stringify(data));
+    return;
+  }
   await env.KV.put(key, JSON.stringify(data));
 }
 
@@ -394,8 +403,6 @@ function latestNews() {
 
 async function route(context) {
   const { request, env } = context;
-  if (!env.KV) return error('Cloudflare KV binding "KV" is required.', 500);
-
   const url = new URL(request.url);
   const path = url.pathname.replace(/^\/api\/?/, '');
   const parts = path.split('/').filter(Boolean);

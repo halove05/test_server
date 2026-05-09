@@ -2,12 +2,3 @@
 name = "quantwave"
 pages_build_output_dir = "./dist"
 compatibility_date = "2026-05-09"
-
-[[kv_namespaces]]
-binding = "KV"
-id = "REPLACE_WITH_PRODUCTION_KV_NAMESPACE_ID"
-preview_id = "REPLACE_WITH_PREVIEW_KV_NAMESPACE_ID"
-
-[vars]
-JWT_SECRET = "replace-this-before-production"
-KIS_API_URL = "https://openapi.koreainvestment.com:9443"
