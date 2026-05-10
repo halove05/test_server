@@ -13,6 +13,10 @@ async function body(req) {
 }
 
 async function getKV(env, key, fallback) {
+  if (!env.KV) {
+    console.error('KV binding is missing. Please check Cloudflare Dashboard -> Workers & Pages -> your-project -> Settings -> Functions -> KV namespace bindings.');
+    return fallback;
+  }
   try {
     const val = await env.KV.get(key);
     return val ? JSON.parse(val) : fallback;
@@ -20,6 +24,9 @@ async function getKV(env, key, fallback) {
 }
 
 async function putKV(env, key, val) {
+  if (!env.KV) {
+    throw new Error('KV storage is not configured. Please bind a KV namespace named "KV" to your Pages project in the Cloudflare dashboard.');
+  }
   await env.KV.put(key, JSON.stringify(val));
 }
 

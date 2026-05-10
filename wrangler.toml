@@ -2,3 +2,7 @@
 name = "quantwave"
 pages_build_output_dir = "./dist"
 compatibility_date = "2026-05-09"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "YOUR_KV_NAMESPACE_ID_HERE"
