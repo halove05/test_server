@@ -114,9 +114,25 @@ export default function MainLayout() {
             <button className="lg:hidden p-2 text-gray-400 hover:text-white" onClick={() => setIsMobileMenuOpen(true)}>
               <Menu size={24} />
             </button>
-            <div className="hidden md:flex items-center gap-2 bg-gray-900/50 px-3 py-1.5 rounded-full border border-gray-800">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t('liveEngine')}</span>
+            <div className="hidden md:flex items-center gap-4">
+              <div className="flex items-center gap-2 bg-gray-900/50 px-3 py-1.5 rounded-full border border-gray-800">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t('liveEngine')}</span>
+              </div>
+              <button 
+                onClick={async () => {
+                  if(confirm('모든 자동매매를 즉시 중단하시겠습니까?')) {
+                    try {
+                      await apiClient.post('/trading/stop-all');
+                      window.location.reload(); // 상태 반영을 위해 새로고침
+                    } catch(e) { alert('정지 실패'); }
+                  }
+                }}
+                className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-3 py-1.5 rounded-full border border-red-500/20 transition-all group"
+              >
+                <AlertTriangle size={14} className="group-hover:animate-bounce" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Kill Switch</span>
+              </button>
             </div>
           </div>
           

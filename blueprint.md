@@ -107,15 +107,31 @@ wrangler.toml        # Pages/KV 바인딩 설정
 ## 13. 주요 코드 예시
 (UI 단의 실제투자 ON/OFF 버튼 예시는 채팅 응답 참조)
 
-## 14. 실행 방법
+## 14. 실행 및 배포 방법
 1.  **Frontend:** `npm install` -> `npm run dev`
-2.  **Cloudflare 로컬:** `npm run pages:dev`
-3.  **배포:** Cloudflare Pages에서 Build command `npm run build`, output `dist`, KV binding `KV` 설정
+2.  **Cloudflare 로컬 테스트:** 
+    *   `.env` 파일에 KIS API 키 설정
+    *   `npm run pages:dev` 명령어로 Functions 로컬 실행 확인
+3.  **Cloudflare Pages 배포:**
+    *   Build command: `npm run build`
+    *   Build output directory: `dist`
+    *   **Environment Variables (Secrets) 설정:**
+        *   `KIS_APP_KEY`: 한국투자증권 앱 키
+        *   `KIS_APP_SECRET`: 한국투자증권 앱 시크릿
+        *   `KIS_CANO`: 한국투자증권 계좌번호 (8자리)
+        *   `KIS_API_URL`: `https://openapi.koreainvestment.com:9443` (실전) 또는 `https://openapivts.koreainvestment.com:29443` (모의)
+        *   `JWT_SECRET`: 인증 토큰용 비밀키
+    *   **KV Namespace 바인딩:** `KV`라는 이름으로 KV 네임스페이스를 생성하고 바인딩 (액세스 토큰 캐싱용)
 
-## 15. 확장 가능 기능
-*   AI 뉴스 감성 분석 기반 투자 신호 생성
-*   소셜 트레이딩 (우수 사용자 전략 모의투자 복사)
-*   TradingView 고급 차트 연동
+## 15. 구현 현황 (Institutional-Grade Features)
+*   [x] **실시간 지수/시세 (Market Data):** KIS API 연동 및 Cloudflare KV 캐싱 (0.1초급 반응성)
+*   [x] **자율 매매 엔진 (Autonomous Engine):** 1분 단위 시장 스캔 및 조건 충족 시 자동 주문 실행
+*   [x] **AI 뉴스 감성 분석 (News AI):** 실시간 종목 뉴스 헤드라인 기반 긍정/부정 수치화 및 매매 필터링
+*   [x] **AI 전략 생성기 (AI Designer):** 자연어Prompt를 통한 기술적 매매 조건 자동 설계
+*   [x] **고급 리스크 관리 (Risk Control):** 일일 손실 제한(Stop-Loss), 전역 비상 정지(Kill Switch)
+*   [x] **전문 분석 지표 (Analytics):** MDD(최대 낙폭), Sharpe Ratio(위험 대비 수익률) 실시간 산출
+*   [x] **소셜 트레이딩 (Social Trading):** 리더보드 탐색 및 고수익 전략 즉시 복사(Copy Trading)
+*   [x] **프리미엄 UI/UX:** 다국어 지원, Framer Motion 애니메이션, Glassmorphism 알림 센터
 
 ## 16. 개발 시 주의사항
 *   **법적 고지:** 투자 자문으로 해석되지 않도록 '도구'임을 명시하고 수익을 보장하는 문구를 배제합니다.

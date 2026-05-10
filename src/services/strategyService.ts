@@ -11,6 +11,7 @@ export interface Condition {
 export interface Strategy {
   id?: number;
   name: string;
+  targetSymbol: string;
   conditions: Condition[];
   investmentPerOrder: number;
   isStopLossActive: boolean;

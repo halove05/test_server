@@ -15,7 +15,7 @@ import {
   BarChart3,
   Newspaper
 } from 'lucide-react';
-import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, Line, LineChart, CartesianGrid, Legend } from 'recharts';
+import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { marketService } from '@/services/marketService';
 import type { StockPrice, ChartData, OrderBook, Fundamentals } from '@/services/marketService';
 import { kisService } from '@/services/kisService';
@@ -23,6 +23,7 @@ import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import apiClient from '@/services/apiClient';
 import TradingViewChart from '@/components/TradingViewChart';
+import { formatCurrency, formatPercent, formatNumber } from '@/utils/formatters';
 
 export default function StockDetail() {
   const { symbol } = useParams<{ symbol: string }>();
@@ -116,9 +117,9 @@ export default function StockDetail() {
                 {stock.isLive ? '실시간 KIS' : '샘플 시세'}
               </span>
             </div>
-            {!stock.isLive && stock.fallbackReason && (
-              <p className="mt-2 max-w-2xl text-xs font-bold text-yellow-500/80">
-                KIS 실시간 시세를 가져오지 못해 샘플 시세를 표시 중입니다. 설정에서 KIS App Key, App Secret, 계좌번호를 저장하거나 Cloudflare 환경변수를 확인하세요.
+            {!stock.isLive && (
+              <p className="mt-2 max-w-2xl text-[10px] font-bold text-yellow-500/80 uppercase tracking-widest">
+                USING MOCK DATA FALLBACK
               </p>
             )}
           </div>
@@ -143,10 +144,10 @@ export default function StockDetail() {
               <div>
                 <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1 block">Live Price</span>
                 <div className="flex items-end gap-3">
-                  <h2 className="text-6xl font-black text-white tracking-tighter">{stock.currency === 'USD' ? '$ ' : '₩ '}{stock.currentPrice.toLocaleString()}</h2>
+                  <h2 className="text-6xl font-black text-white tracking-tighter">{formatCurrency(stock.currentPrice, stock.currency)}</h2>
                   <div className={`flex items-center gap-1 text-xl font-black mb-1.5 ${isUp ? 'text-red-500' : 'text-blue-500'}`}>
                     {isUp ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
-                    {stock.changeRate}%
+                    {formatPercent(stock.changeRate)}
                   </div>
                 </div>
               </div>
@@ -161,19 +162,29 @@ export default function StockDetail() {
                 <TradingViewChart data={chartData} height={400} />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-gray-800/50 pt-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 border-t border-gray-800/50 pt-8">
                 <div className="h-[120px]">
                   <div className="flex items-center justify-between mb-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">
                     <div className="flex items-center gap-2"><Activity size={14} className="text-green-500" /><span>RSI (14)</span></div>
-                    <span className="text-white">{chartData[chartData.length-1]?.rsi?.toFixed(1)}</span>
+                    <span className="text-white font-black">{chartData[chartData.length-1]?.rsi?.toFixed(1)}</span>
                   </div>
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData}><YAxis domain={[0, 100]} hide /><Area type="monotone" dataKey="rsi" stroke="#10b981" fill="#10b981" fillOpacity={0.1} strokeWidth={2} dot={false} /></AreaChart>
                   </ResponsiveContainer>
                 </div>
                 <div className="bg-gray-900/30 rounded-2xl p-5 border border-gray-800">
+                  <div className="flex items-center justify-between mb-3 text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                    <div className="flex items-center gap-2"><Layers size={14} className="text-orange-500" /><span>SMA / BB</span></div>
+                    <span className="text-white">Trend</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center"><span className="text-[9px] text-gray-500 font-bold">SMA (20)</span><span className="text-xs font-black text-white">{formatNumber(chartData[chartData.length-1]?.sma20 || 0)}</span></div>
+                    <div className="flex justify-between items-center"><span className="text-[9px] text-gray-500 font-bold">BB Upper</span><span className="text-xs font-black text-red-500/80">{formatNumber(chartData[chartData.length-1]?.bbUpper || 0)}</span></div>
+                  </div>
+                </div>
+                <div className="bg-gray-900/30 rounded-2xl p-5 border border-gray-800">
                   <div className="flex items-center gap-2 mb-3 text-[10px] font-black text-gray-500 uppercase tracking-widest"><Info size={14} className="text-blue-500" /><span>AI Analysis Logic</span></div>
-                  <p className="text-xs font-bold text-gray-400 leading-relaxed">{aiSignal?.reason || '분석 데이터를 계산 중입니다...'}</p>
+                  <p className="text-xs font-bold text-gray-400 leading-relaxed line-clamp-3">{aiSignal?.reason || '분석 데이터를 계산 중입니다...'}</p>
                 </div>
               </div>
             </div>
@@ -200,7 +211,7 @@ export default function StockDetail() {
                   </div>
                   <div>
                     <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">EPS (주당순이익)</p>
-                    <p className="text-lg font-black text-white">₩ {fundamentals.eps.toLocaleString()}</p>
+                    <p className="text-lg font-black text-white">{formatCurrency(fundamentals.eps)}</p>
                   </div>
                   <div>
                     <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">배당수익률</p>
@@ -209,15 +220,15 @@ export default function StockDetail() {
                   <div className="col-span-2 pt-4 border-t border-gray-800">
                     <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">52주 최고/최저</p>
                     <div className="flex items-center gap-3">
-                      <span className="text-red-500 font-bold text-sm">₩ {fundamentals.w52High.toLocaleString()}</span>
+                      <span className="text-red-500 font-bold text-sm">{formatCurrency(fundamentals.w52High)}</span>
                       <div className="flex-1 h-1 bg-gray-800 rounded-full relative">
                         <div className="absolute top-0 bottom-0 bg-gray-600" style={{ left: '30%', right: '40%' }}></div>
                       </div>
-                      <span className="text-blue-500 font-bold text-sm">₩ {fundamentals.w52Low.toLocaleString()}</span>
+                      <span className="text-blue-500 font-bold text-sm">{formatCurrency(fundamentals.w52Low)}</span>
                     </div>
                   </div>
                 </div>
-              ) : <Loader2 className="animate-spin" />}
+              ) : <Loader2 className="animate-spin text-gray-500" />}
             </div>
 
             {/* Specific News Card */}
@@ -228,19 +239,35 @@ export default function StockDetail() {
                 </div>
                 <h2 className="text-xl font-bold text-white tracking-tight">종목 관련 소식</h2>
               </div>
-              <div className="space-y-6">
-                {specificNews.map((news) => (
-                  <div key={news.id} className="group cursor-pointer">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[10px] font-black text-blue-500 uppercase">{news.source}</span>
-                      <span className="text-[10px] text-gray-600 font-bold">방금 전</span>
+            <div className="space-y-6">
+              {specificNews.length > 0 ? specificNews.map((news) => (
+                <div key={news.id} className="group bg-[#0d1117]/40 p-5 rounded-2xl border border-gray-800 hover:border-blue-500/30 transition-all cursor-pointer">
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-blue-500 uppercase tracking-tighter">{news.source}</span>
+                      <span className="w-1 h-1 bg-gray-700 rounded-full"></span>
+                      <span className="text-[9px] text-gray-600 font-bold">12m ago</span>
                     </div>
-                    <p className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors leading-snug">
-                      {news.title}
-                    </p>
+                    <div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter border ${
+                      news.sentiment === 'positive' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 
+                      news.sentiment === 'negative' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 
+                      'bg-gray-800 text-gray-400 border-gray-700'
+                    }`}>
+                      {news.sentiment || 'neutral'}
+                    </div>
                   </div>
-                ))}
-              </div>
+                  <p className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors leading-snug mb-3">
+                    {news.title}
+                  </p>
+                  <div className="flex items-center gap-1.5 pt-3 border-t border-gray-800/50">
+                    <div className="h-1 w-10 bg-gray-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500" style={{ width: '65%' }}></div>
+                    </div>
+                    <span className="text-[8px] font-black text-gray-600 uppercase tracking-widest">Impact Score</span>
+                  </div>
+                </div>
+              )) : <p className="text-xs text-gray-600 font-bold uppercase tracking-widest">No recent news available</p>}
+            </div>
             </div>
           </div>
 
@@ -253,8 +280,8 @@ export default function StockDetail() {
                   {orderBook.asks.map((level, idx) => (
                     <div key={`ask-${idx}`} className="relative h-9 flex items-center justify-between px-4 rounded-lg bg-blue-500/5 group">
                       <div className="absolute right-0 top-0 bottom-0 bg-blue-500/10 rounded-r-lg transition-all duration-700" style={{ width: `${Math.min(100, (level.volume / 30000) * 100)}%` }}></div>
-                      <span className="text-blue-400 font-black text-xs z-10">{level.price.toLocaleString()}</span>
-                      <span className="text-[10px] text-gray-600 font-bold z-10">{level.volume.toLocaleString()}</span>
+                      <span className="text-blue-400 font-black text-xs z-10">{formatNumber(level.price)}</span>
+                      <span className="text-[10px] text-gray-600 font-bold z-10">{formatNumber(level.volume)}</span>
                     </div>
                   ))}
                 </div>
@@ -262,13 +289,13 @@ export default function StockDetail() {
                   {orderBook.bids.map((level, idx) => (
                     <div key={`bid-${idx}`} className="relative h-9 flex items-center justify-between px-4 rounded-lg bg-red-500/5 group">
                       <div className="absolute left-0 top-0 bottom-0 bg-red-500/10 rounded-l-lg transition-all duration-700" style={{ width: `${Math.min(100, (level.volume / 30000) * 100)}%` }}></div>
-                      <span className="text-red-400 font-black text-xs z-10">{level.price.toLocaleString()}</span>
-                      <span className="text-[10px] text-gray-600 font-bold z-10">{level.volume.toLocaleString()}</span>
+                      <span className="text-red-400 font-black text-xs z-10">{formatNumber(level.price)}</span>
+                      <span className="text-[10px] text-gray-600 font-bold z-10">{formatNumber(level.volume)}</span>
                     </div>
                   ))}
                 </div>
               </div>
-            ) : <Loader2 className="mx-auto animate-spin" />}
+            ) : <Loader2 className="mx-auto animate-spin text-gray-500" />}
           </div>
         </div>
 
@@ -288,7 +315,7 @@ export default function StockDetail() {
               <div className="space-y-2"><label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Price</label><input type="number" value={price} onChange={(e) => setPrice(parseInt(e.target.value))} className="w-full bg-[#0d1117] border border-gray-800 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-red-500 transition-all font-black text-lg" /></div>
               <div className="space-y-2"><label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Quantity</label><input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="w-full bg-[#0d1117] border border-gray-800 rounded-2xl px-5 py-4 text-white focus:outline-none font-black text-lg" /></div>
               <div className="pt-6 border-t border-gray-800/50">
-                <div className="flex justify-between items-end mb-6"><span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Total</span><span className="text-xl font-black text-white">₩ {(price * quantity).toLocaleString()}</span></div>
+                <div className="flex justify-between items-end mb-6"><span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Total</span><span className="text-xl font-black text-white">{formatCurrency(price * quantity, stock.currency)}</span></div>
                 <button onClick={handleOrder} disabled={isSubmitting} className={`w-full py-5 rounded-2xl font-black text-white shadow-premium transition-all ${isSubmitting ? 'bg-gray-800' : orderType === 'BUY' ? 'bg-red-600' : 'bg-blue-600'}`}>EXECUTE {orderType}</button>
               </div>
             </div>

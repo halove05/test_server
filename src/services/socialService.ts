@@ -30,5 +30,10 @@ export const socialService = {
   getPublicStrategies: async (): Promise<PublicStrategy[]> => {
     const response = await apiClient.get('/social/strategies');
     return response.data;
+  },
+
+  copyStrategy: async (id: string | number): Promise<void> => {
+    await apiClient.post(`/social/copy/${id}`);
+    return;
   }
 };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Save, Play, Settings2, Trash2, Loader2, BarChart3, TrendingUp, TrendingDown, FolderOpen, Target, AlertTriangle } from 'lucide-react';
+import { Plus, Save, Play, Settings2, Trash2, Loader2, BarChart3, FolderOpen, Target, AlertTriangle, Zap } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { strategyService } from '../services/strategyService';
 import type { Condition, Strategy } from '../services/strategyService';
@@ -9,68 +9,104 @@ import { useLocaleStore } from '@/store/useLocaleStore';
 export default function StrategyPage() {
   const [conditions, setConditions] = useState<Condition[]>([{ id: 1, type: 'RSI', operator: '<=', value: 30, action: 'BUY' }]);
   const [strategyName, setStrategyName] = useState('새로운 전략');
+  const [targetSymbol, setTargetSymbol] = useState('005930');
   const [investment, setInvestment] = useState(1000000);
   const [isStopLossActive, setIsStopLossActive] = useState(true);
+  const [stopLossRate, setStopLossRate] = useState(-5);
   const [savedStrategies, setSavedStrategies] = useState<Strategy[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(true);
-  const [targetSymbol, setTargetSymbol] = useState('005930');
   const [period, setPeriod] = useState(30);
   const [isBacktesting, setIsBacktesting] = useState(false);
   const [backtestResult, setBacktestResult] = useState<any>(null);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
   const { locale, t } = useLocaleStore();
 
   const conditionLabels: Record<string, string> = {
-    RSI: 'RSI 과매수/과매도',
-    PRICE: '현재가',
-    MA: '20일 이동평균',
-    MACD: 'MACD 추세',
-    NEWS: '뉴스 심리',
-  };
-
-  const actionLabels: Record<string, string> = {
-    BUY: '매수',
-    SELL: '매도',
-  };
-
-  const operatorLabels: Record<string, string> = {
-    '<=': '이하이면',
-    '>=': '이상이면',
-    '==': '같으면',
-    CROSS: '돌파하면',
+    'RSI': locale === 'ko' ? 'RSI 지수' : 'RSI Index',
+    'PRICE': locale === 'ko' ? '현재가' : 'Current Price',
+    'MA': locale === 'ko' ? '이동평균선' : 'Moving Average',
+    'MACD': locale === 'ko' ? 'MACD' : 'MACD',
+    'NEWS': locale === 'ko' ? '뉴스 심리' : 'News Sentiment'
   };
 
   const getConditionSentence = (cond: Condition) => {
-    const metric = locale === 'ko' ? conditionLabels[cond.type] || cond.type : cond.type;
-    const operator = locale === 'ko' ? operatorLabels[cond.operator] || cond.operator : cond.operator;
-    const action = locale === 'ko' ? actionLabels[cond.action] || cond.action : cond.action;
-    return locale === 'ko'
-      ? `${metric} 값이 ${cond.value} ${operator} ${action} 신호로 판단합니다.`
-      : `If ${metric} ${cond.operator} ${cond.value}, trigger ${cond.action}.`;
+    const indicator = conditionLabels[cond.type] || cond.type;
+    const op = cond.operator === 'CROSS' ? (locale === 'ko' ? '을/를 돌파하면' : 'crosses') : (cond.operator + (locale === 'ko' ? ' 이면' : ''));
+    const action = cond.action === 'BUY' ? (locale === 'ko' ? '매수' : 'BUY') : (locale === 'ko' ? '매도' : 'SELL');
+    return `${indicator} ${cond.operator} ${cond.value} → ${action}`;
   };
 
-  useEffect(() => { fetchStrategies(); }, []);
+  useEffect(() => {
+    fetchStrategies();
+  }, []);
 
   const fetchStrategies = async () => {
     setIsLoadingList(true);
-    try { setSavedStrategies(await strategyService.getStrategies()); } catch (error) { console.error(error); } finally { setIsLoadingList(false); }
+    try {
+      const data = await strategyService.getStrategies();
+      setSavedStrategies(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoadingList(false);
+    }
   };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await strategyService.saveStrategy({ name: strategyName, conditions, investmentPerOrder: investment, isStopLossActive, stopLossRate: -5 });
-      alert('저장 완료'); fetchStrategies();
-    } catch (error) { alert('실패'); } finally { setIsSaving(false); }
+      await strategyService.saveStrategy({
+        name: strategyName,
+        targetSymbol,
+        conditions,
+        investmentPerOrder: investment,
+        isStopLossActive,
+        stopLossRate
+      });
+      alert(locale === 'ko' ? '저장 완료' : 'Saved successfully');
+      fetchStrategies();
+    } catch (error) {
+      alert(locale === 'ko' ? '실패' : 'Failed to save');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleBacktest = async () => {
     setIsBacktesting(true);
     setBacktestResult(null);
     try {
-      const result = await strategyService.runBacktest({ name: strategyName, conditions, investmentPerOrder: investment, isStopLossActive, stopLossRate: -5 }, targetSymbol, period);
+      const result = await strategyService.runBacktest({
+        name: strategyName,
+        targetSymbol,
+        conditions,
+        investmentPerOrder: investment,
+        isStopLossActive,
+        stopLossRate
+      }, targetSymbol, period);
       setBacktestResult(result);
-    } catch (error) { alert('실패'); } finally { setIsBacktesting(false); }
+    } catch (error) {
+      console.error(error);
+      alert(locale === 'ko' ? '백테스트 실패' : 'Backtest failed');
+    } finally {
+      setIsBacktesting(false);
+    }
+  };
+
+  const handleAiGenerate = async () => {
+    if (!aiPrompt) return;
+    setIsGenerating(true);
+    try {
+      const generated = await strategyService.generateFromAI(aiPrompt);
+      setConditions(generated);
+    } catch (e) {
+      console.error(e);
+      alert(locale === 'ko' ? 'AI 생성 실패' : 'AI generation failed');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -81,13 +117,94 @@ export default function StrategyPage() {
           <p className="text-gray-500 font-bold">{t('strategyLabDescription')}</p>
         </div>
         <div className="flex gap-4">
-          <button onClick={handleBacktest} disabled={isBacktesting} className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-2xl font-black transition-all shadow-premium"><Play size={20} /> {t('runTest')}</button>
-          <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-2xl font-black transition-all shadow-lg shadow-red-500/20"><Save size={20} /> {t('saveLab')}</button>
+          <button onClick={handleBacktest} disabled={isBacktesting} className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-2xl font-black transition-all shadow-premium">
+            {isBacktesting ? <Loader2 className="animate-spin" size={20} /> : <Play size={20} />}
+            {t('runTest')}
+          </button>
+          <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-2xl font-black transition-all shadow-lg shadow-red-500/20">
+            {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+            {t('saveLab')}
+          </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 space-y-8">
+          {/* AI Strategy Prompt */}
+          <div className="bg-[#161b22] p-8 rounded-3xl border border-gray-800 shadow-premium relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Zap size={80} className="text-red-500" />
+            </div>
+            <h2 className="text-xl font-black text-white mb-6 flex items-center gap-3"><Zap className="text-red-500" /> AI Quick Design</h2>
+            <div className="relative">
+              <textarea 
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder={locale === 'ko' ? "예: RSI가 30보다 낮으면 사고, 70보다 높으면 팔아줘. 뉴스가 호재일 때만 사고 싶어." : "e.g. Buy when RSI is below 30, sell when above 70."}
+                className="w-full bg-[#0d1117] border border-gray-800 rounded-2xl px-6 py-5 text-white placeholder-gray-600 focus:outline-none focus:border-red-500/50 transition-all min-h-[120px] font-medium leading-relaxed"
+              />
+              <button 
+                onClick={handleAiGenerate}
+                disabled={isGenerating}
+                className="absolute bottom-4 right-4 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-black transition-all flex items-center gap-2 shadow-lg disabled:opacity-50"
+              >
+                {isGenerating ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
+                {locale === 'ko' ? '블록 생성' : 'GENERATE BLOCKS'}
+              </button>
+            </div>
+          </div>
+
+          {/* Strategy Basic Info */}
+          <div className="bg-[#161b22] p-8 rounded-3xl border border-gray-800 shadow-premium">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div>
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Strategy Name</label>
+                <input 
+                  type="text" 
+                  value={strategyName} 
+                  onChange={(e) => setStrategyName(e.target.value)}
+                  className="w-full bg-[#0d1117] border border-gray-800 rounded-xl px-4 py-3 text-white font-bold"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Target Ticker</label>
+                <input 
+                  type="text" 
+                  value={targetSymbol} 
+                  onChange={(e) => setTargetSymbol(e.target.value)}
+                  className="w-full bg-[#0d1117] border border-gray-800 rounded-xl px-4 py-3 text-white font-black"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Investment/Order</label>
+                <input 
+                  type="number" 
+                  value={investment} 
+                  onChange={(e) => setInvestment(parseInt(e.target.value))}
+                  className="w-full bg-[#0d1117] border border-gray-800 rounded-xl px-4 py-3 text-white font-bold"
+                />
+              </div>
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Stop Loss (%)</label>
+                  <input 
+                    type="number" 
+                    value={stopLossRate} 
+                    onChange={(e) => setStopLossRate(parseInt(e.target.value))}
+                    className="w-full bg-[#0d1117] border border-gray-800 rounded-xl px-4 py-3 text-red-500 font-bold"
+                  />
+                </div>
+                <button 
+                  onClick={() => setIsStopLossActive(!isStopLossActive)}
+                  className={`p-3.5 rounded-xl border transition-all ${isStopLossActive ? 'bg-red-500/10 border-red-500/30 text-red-500' : 'bg-gray-800 border-gray-700 text-gray-500'}`}
+                >
+                  <AlertTriangle size={20} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Condition Blocks */}
           <div className="bg-[#161b22] p-8 rounded-3xl border border-gray-800 shadow-premium min-h-[400px]">
             <div className="flex items-center justify-between mb-8 border-b border-gray-800 pb-6">
               <div>
@@ -176,8 +293,10 @@ export default function StrategyPage() {
           <div className="bg-[#161b22] p-6 rounded-3xl border border-gray-800 shadow-premium">
             <h2 className="text-sm font-black text-white mb-6 uppercase tracking-widest flex items-center gap-2"><FolderOpen size={16} className="text-blue-500" /> {locale === 'ko' ? '전략 보관함' : 'Strategy Library'}</h2>
             <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-              {savedStrategies.map((s) => (
-                <div key={s.id} className="group p-4 bg-gray-900/40 rounded-2xl border border-gray-800 hover:border-gray-600 cursor-pointer transition-all" onClick={() => { setStrategyName(s.name); setConditions(s.conditions); setInvestment(s.investmentPerOrder); setIsStopLossActive(s.isStopLossActive); setBacktestResult(null); }}>
+              {isLoadingList ? (
+                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-gray-600" /></div>
+              ) : savedStrategies.map((s) => (
+                <div key={s.id} className="group p-4 bg-gray-900/40 rounded-2xl border border-gray-800 hover:border-gray-600 cursor-pointer transition-all" onClick={() => { setStrategyName(s.name); setConditions(s.conditions); setInvestment(s.investmentPerOrder); setIsStopLossActive(s.isStopLossActive); setStopLossRate(s.stopLossRate); setBacktestResult(null); }}>
                   <p className="text-sm font-black text-white mb-1 truncate">{s.name}</p>
                   <p className="text-[10px] text-gray-600 font-bold uppercase">{s.conditions.length} Blocks · ₩ {s.investmentPerOrder.toLocaleString()}</p>
                 </div>

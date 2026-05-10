@@ -54,7 +54,11 @@ type TranslationKey =
   | 'tradingManagement'
   | 'tradingStation'
   | 'tradingStationDescription'
-  | 'winRate';
+  | 'winRate'
+  | 'addStocks'
+  | 'noWatchlistStocks'
+  | 'leaderboard'
+  | 'publicStrategies';
 
 const translations: Record<Locale, Record<TranslationKey, string>> = {
   ko: {
@@ -109,6 +113,10 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     tradingStation: '트레이딩 스테이션',
     tradingStationDescription: '자동매매 엔진 및 실시간 포트폴리오 관리',
     winRate: '승률',
+    addStocks: '종목 추가',
+    noWatchlistStocks: '관심 종목이 없습니다.',
+    leaderboard: '리더보드',
+    publicStrategies: '공개 전략',
   },
   en: {
     activePositions: 'Active Positions',
@@ -162,6 +170,10 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     tradingStation: 'Trading Station',
     tradingStationDescription: 'Automated engine and real-time portfolio management',
     winRate: 'Win Rate',
+    addStocks: 'Add Stocks',
+    noWatchlistStocks: 'No stocks in watchlist.',
+    leaderboard: 'Leaderboard',
+    publicStrategies: 'Public Strategies',
   },
 };
 
