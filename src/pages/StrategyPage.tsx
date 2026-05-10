@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Plus, Save, Play, Settings2, Trash2, Loader2, BarChart3, FolderOpen, Target, AlertTriangle, Zap } from 'lucide-react';
+import { Plus, Save, Play, Settings2, Trash2, Loader2, BarChart3, FolderOpen, Target, AlertTriangle, Zap, Activity } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { strategyService } from '../services/strategyService';
 import type { Condition, Strategy } from '../services/strategyService';
 import { motion } from 'framer-motion';
 import { useLocaleStore } from '@/store/useLocaleStore';
+import { formatCurrency, formatPercent } from '@/utils/formatters';
 
 export default function StrategyPage() {
   const [conditions, setConditions] = useState<Condition[]>([{ id: 1, type: 'RSI', operator: '<=', value: 30, action: 'BUY' }]);
@@ -55,6 +56,10 @@ export default function StrategyPage() {
   };
 
   const handleSave = async () => {
+    if (conditions.length === 0) {
+      alert(locale === 'ko' ? '최소 하나 이상의 조건이 필요합니다.' : 'At least one condition is required.');
+      return;
+    }
     setIsSaving(true);
     try {
       await strategyService.saveStrategy({
@@ -75,6 +80,10 @@ export default function StrategyPage() {
   };
 
   const handleBacktest = async () => {
+    if (conditions.length === 0) {
+      alert(locale === 'ko' ? '테스트할 조건이 없습니다.' : 'No conditions to test.');
+      return;
+    }
     setIsBacktesting(true);
     setBacktestResult(null);
     try {
@@ -89,7 +98,7 @@ export default function StrategyPage() {
       setBacktestResult(result);
     } catch (error) {
       console.error(error);
-      alert(locale === 'ko' ? '백테스트 실패' : 'Backtest failed');
+      alert(locale === 'ko' ? '백테스트 실패 (API 연결을 확인하세요)' : 'Backtest failed (Check API keys)');
     } finally {
       setIsBacktesting(false);
     }
@@ -117,11 +126,11 @@ export default function StrategyPage() {
           <p className="text-gray-500 font-bold">{t('strategyLabDescription')}</p>
         </div>
         <div className="flex gap-4">
-          <button onClick={handleBacktest} disabled={isBacktesting} className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-2xl font-black transition-all shadow-premium">
+          <button onClick={handleBacktest} disabled={isBacktesting} className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-2xl font-black transition-all shadow-premium disabled:opacity-50">
             {isBacktesting ? <Loader2 className="animate-spin" size={20} /> : <Play size={20} />}
             {t('runTest')}
           </button>
-          <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-2xl font-black transition-all shadow-lg shadow-red-500/20">
+          <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-2xl font-black transition-all shadow-lg shadow-red-500/20 disabled:opacity-50">
             {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
             {t('saveLab')}
           </button>
@@ -171,8 +180,9 @@ export default function StrategyPage() {
                 <input 
                   type="text" 
                   value={targetSymbol} 
-                  onChange={(e) => setTargetSymbol(e.target.value)}
+                  onChange={(e) => setTargetSymbol(e.target.value.toUpperCase())}
                   className="w-full bg-[#0d1117] border border-gray-800 rounded-xl px-4 py-3 text-white font-black"
+                  placeholder="005930 or AAPL"
                 />
               </div>
               <div>
@@ -258,6 +268,12 @@ export default function StrategyPage() {
                   </div>
                 </div>
               ))}
+              {conditions.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-gray-800 rounded-3xl text-gray-600">
+                  <Activity size={48} className="mb-4 opacity-20" />
+                  <p className="font-bold">추가된 매매 조건이 없습니다.</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -265,7 +281,10 @@ export default function StrategyPage() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-[#161b22] p-8 rounded-3xl border border-gray-800 shadow-premium space-y-10">
               <div className="flex items-center justify-between border-b border-gray-800 pb-6">
                 <h2 className="text-2xl font-black text-white tracking-tighter flex items-center gap-3"><BarChart3 className="text-red-500" /> {locale === 'ko' ? '시뮬레이션 분석' : 'Simulation Analytics'}</h2>
-                <span className="text-gray-500 text-[10px] font-black uppercase tracking-widest">{targetSymbol} / {period} {locale === 'ko' ? '일' : 'Days'}</span>
+                <div className="flex items-center gap-3">
+                   <span className="px-3 py-1 bg-green-500/10 text-green-500 text-[10px] font-black rounded-full border border-green-500/20">LIVE DATA FEED</span>
+                   <span className="text-gray-500 text-[10px] font-black uppercase tracking-widest">{targetSymbol} / {period} {locale === 'ko' ? '일' : 'Days'}</span>
+                </div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                 <div><p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">Return</p><p className={`text-3xl font-black tracking-tighter ${backtestResult.totalReturn >= 0 ? 'text-red-500' : 'text-blue-500'}`}>{backtestResult.totalReturn}%</p></div>
@@ -280,7 +299,11 @@ export default function StrategyPage() {
                     <defs><linearGradient id="backtestColor" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/><stop offset="95%" stopColor="#ef4444" stopOpacity={0}/></linearGradient></defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
                     <XAxis dataKey="date" hide /><YAxis hide domain={['dataMin - 100000', 'dataMax + 100000']} />
-                    <Tooltip contentStyle={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px' }} itemStyle={{ fontWeight: 'black', color: '#fff' }} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '16px' }} 
+                      itemStyle={{ fontWeight: 'black', color: '#fff' }} 
+                      formatter={(value: any) => [formatCurrency(value), 'Equity']}
+                    />
                     <Area type="monotone" dataKey="equity" stroke="#ef4444" strokeWidth={4} fill="url(#backtestColor)" />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -296,9 +319,9 @@ export default function StrategyPage() {
               {isLoadingList ? (
                 <div className="flex justify-center py-8"><Loader2 className="animate-spin text-gray-600" /></div>
               ) : savedStrategies.map((s) => (
-                <div key={s.id} className="group p-4 bg-gray-900/40 rounded-2xl border border-gray-800 hover:border-gray-600 cursor-pointer transition-all" onClick={() => { setStrategyName(s.name); setConditions(s.conditions); setInvestment(s.investmentPerOrder); setIsStopLossActive(s.isStopLossActive); setStopLossRate(s.stopLossRate); setBacktestResult(null); }}>
+                <div key={s.id} className="group p-4 bg-gray-900/40 rounded-2xl border border-gray-800 hover:border-gray-600 cursor-pointer transition-all" onClick={() => { setStrategyName(s.name); setConditions(s.conditions); setInvestment(s.investmentPerOrder); setIsStopLossActive(s.isStopLossActive); setStopLossRate(s.stopLossRate); setBacktestResult(null); setTargetSymbol(s.targetSymbol || '005930'); }}>
                   <p className="text-sm font-black text-white mb-1 truncate">{s.name}</p>
-                  <p className="text-[10px] text-gray-600 font-bold uppercase">{s.conditions.length} Blocks · ₩ {s.investmentPerOrder.toLocaleString()}</p>
+                  <p className="text-[10px] text-gray-600 font-bold uppercase">{s.conditions.length} Blocks · {s.targetSymbol}</p>
                 </div>
               ))}
             </div>
@@ -306,7 +329,7 @@ export default function StrategyPage() {
           <div className="bg-[#161b22] p-8 rounded-3xl border border-gray-800 shadow-premium space-y-6">
             <h2 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2"><Target size={16} className="text-red-500" /> {locale === 'ko' ? '시뮬레이션 설정' : 'Simulation Settings'}</h2>
             <div className="space-y-4">
-              <div><label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1 mb-2 block">{t('ticker')}</label><input type="text" className="w-full bg-[#0d1117] border border-gray-800 rounded-2xl px-5 py-4 text-white font-black" value={targetSymbol} onChange={(e) => setTargetSymbol(e.target.value)} /></div>
+              <div><label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1 mb-2 block">{t('ticker')}</label><input type="text" className="w-full bg-[#0d1117] border border-gray-800 rounded-2xl px-5 py-4 text-white font-black" value={targetSymbol} onChange={(e) => setTargetSymbol(e.target.value.toUpperCase())} /></div>
               <div><label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1 mb-2 block">{locale === 'ko' ? '기간' : 'Window (Days)'}</label><select className="w-full bg-[#0d1117] border border-gray-800 rounded-2xl px-5 py-4 text-white font-black" value={period} onChange={(e) => setPeriod(parseInt(e.target.value))}><option value={7}>7 {locale === 'ko' ? '일' : 'DAYS'}</option><option value={30}>30 {locale === 'ko' ? '일' : 'DAYS'}</option><option value={90}>90 {locale === 'ko' ? '일' : 'DAYS'}</option><option value={365}>1 {locale === 'ko' ? '년' : 'YEAR'}</option></select></div>
             </div>
           </div>

@@ -107,8 +107,8 @@ export default function Dashboard() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-4xl font-black text-white tracking-tighter">{t('marketOverview')}</h1>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${engineMode === 'real' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>
-              {engineMode === 'real' ? 'Live Account' : 'Paper Trading'}
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${engineMode === 'real' ? 'bg-red-500/10 text-red-500 border border-red-500/20 shadow-glow-red/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>
+              {engineMode === 'real' ? 'Real-Time KIS' : 'Demo Mode'}
             </span>
           </div>
           <p className="text-gray-400 font-medium">

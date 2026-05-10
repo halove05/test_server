@@ -14,7 +14,7 @@ async function body(req) {
 
 async function getKV(env, key, fallback) {
   if (!env.KV) {
-    console.error('KV binding is missing. Please check Cloudflare Dashboard -> Workers & Pages -> your-project -> Settings -> Functions -> KV namespace bindings.');
+    console.error('KV binding is missing.');
     return fallback;
   }
   try {
@@ -25,7 +25,7 @@ async function getKV(env, key, fallback) {
 
 async function putKV(env, key, val) {
   if (!env.KV) {
-    throw new Error('KV storage is not configured. Please bind a KV namespace named "KV" to your Pages project in the Cloudflare dashboard.');
+    throw new Error('KV storage is not configured. Please bind a KV namespace named "KV" to your Pages project.');
   }
   await env.KV.put(key, JSON.stringify(val));
 }
@@ -48,10 +48,12 @@ async function authenticate(req, env) {
   const auth = req.headers.get('authorization');
   if (!auth || !auth.startsWith('Bearer ')) throw error('Unauthorized', 401);
   const token = auth.split(' ')[1];
-  const [header, data, sig] = token.split('.');
+  const parts = token.split('.');
+  if (parts.length !== 3) throw error('Invalid token format', 401);
+  const [header, data, sig] = parts;
   const secret = env.JWT_SECRET || 'quantwave-secret-key';
   const expectedSig = await digestHex(`${header}.${data}.${secret}`);
-  if (sig !== expectedSig) throw error('Invalid token', 401);
+  if (sig !== expectedSig) throw error('Invalid token signature', 401);
   const decoded = JSON.parse(atob(data));
   if (decoded.exp < Math.floor(Date.now() / 1000)) throw error('Token expired', 401);
   return decoded;
@@ -127,7 +129,7 @@ function mockPrice(symbol, index = 0) {
 }
 
 function findInstrument(symbol) {
-  return marketUniverse.find(i => i.symbol.toUpperCase() === String(symbol).toUpperCase());
+  return marketUniverse.find(i => String(i.symbol).toUpperCase() === String(symbol).toUpperCase());
 }
 
 function overseasExchangeCode(instrument) {
@@ -142,7 +144,11 @@ function isOverseasInstrument(instrument, symbol) {
 }
 
 async function kisFetch(env, path, options = {}) {
-  const baseUrl = env.KIS_API_URL || 'https://openapi.koreainvestment.com:9443';
+  // 모의투자 URL 지원 (KIS APP KEY가 'P'로 시작하면 실전, 'V'로 시작하면 모의인 경우가 많으나 확실치 않음)
+  // 여기서는 명시적인 환경 변수 또는 자동 전환 로직 필요
+  const isVirtual = (env.KIS_API_URL || '').includes('vts') || (options.headers?.appkey || '').startsWith('V');
+  const baseUrl = isVirtual ? 'https://openapivts.koreainvestment.com:29443' : (env.KIS_API_URL || 'https://openapi.koreainvestment.com:9443');
+  
   const url = new URL(path, baseUrl);
   if (options.params) {
     Object.entries(options.params).forEach(([k, v]) => url.searchParams.append(k, v));
@@ -166,7 +172,10 @@ async function getAccessToken(env, keys) {
     body: { grant_type: 'client_credentials', appkey: keys.appKey, appsecret: keys.appSecret },
   });
 
-  if (!data.access_token) throw new Error('KIS token issuance failed');
+  if (!data.access_token) {
+    console.error('KIS token error:', data);
+    throw new Error(data.msg1 || 'KIS token issuance failed');
+  }
   const token = data.access_token;
   await putKV(env, cacheKey, { token, expires: Date.now() + (data.expires_in - 600) * 1000 });
   return token;
@@ -192,10 +201,14 @@ function userKeys(user, env, users) {
 
 async function getLiveInstrumentPrice(env, keys, symbol, index = 0) {
   const instrument = findInstrument(symbol);
+  const isDomestic = /^\d+$/.test(String(symbol));
+  
   if (!keys.appKey || !keys.appSecret) return mockPrice(symbol, index);
+  
   try {
     const token = await getAccessToken(env, keys);
-    if (isOverseasInstrument(instrument, symbol)) {
+    if (!isDomestic) {
+      // 해외 주식 (미국 기준: NAS, NYS, AMS)
       const excd = overseasExchangeCode(instrument);
       const data = await kisFetch(env, '/uapi/overseas-price/v1/quotations/price', {
         headers: {
@@ -213,18 +226,16 @@ async function getLiveInstrumentPrice(env, keys, symbol, index = 0) {
       
       const o = data.output || {};
       const currentPrice = Number(o.last || 0);
-      const changeAmount = Number(o.diff || 0);
-      const changeRate = Number(o.rate || 0);
       
       return {
         symbol: symbol.toUpperCase(),
         name: instrument?.name || symbol,
         market: instrument?.market || 'NASDAQ',
-        category: instrument?.category || 'global',
+        category: 'global',
         currency: 'USD',
         currentPrice,
-        changeAmount,
-        changeRate,
+        changeAmount: Number(o.diff || 0),
+        changeRate: Number(o.rate || 0),
         high: Number(o.high || currentPrice),
         low: Number(o.low || currentPrice),
         volume: Number(o.tvol || 0),
@@ -234,6 +245,7 @@ async function getLiveInstrumentPrice(env, keys, symbol, index = 0) {
       };
     }
     
+    // 국내 주식
     const data = await kisFetch(env, '/uapi/domestic-stock/v1/quotations/inquire-price', {
       headers: {
         'content-type': 'application/json',
@@ -248,18 +260,19 @@ async function getLiveInstrumentPrice(env, keys, symbol, index = 0) {
     
     if (data.rt_cd !== '0') return { ...mockPrice(symbol, index), fallbackReason: data.msg1 };
     
-    const o = data.output;
+    const o = data.output || {};
+    const currentPrice = Number(o.stck_prpr || 0);
     return {
       symbol,
       name: instrument?.name || symbol,
       market: instrument?.market || 'KOSPI',
-      category: instrument?.category || 'korea',
-      currency: instrument?.currency || 'KRW',
-      currentPrice: Number(o.stck_prpr || 0),
+      category: 'korea',
+      currency: 'KRW',
+      currentPrice,
       changeAmount: Number(o.prdy_vrss || 0),
       changeRate: Number(o.prdy_ctrt || 0),
-      high: Number(o.stck_hgpr || o.stck_prpr || 0),
-      low: Number(o.stck_lwpr || o.stck_prpr || 0),
+      high: Number(o.stck_hgpr || currentPrice),
+      low: Number(o.stck_lwpr || currentPrice),
       volume: Number(o.acml_vol || 0),
       source: 'KIS',
       isLive: true,
@@ -318,13 +331,16 @@ async function getExchangeRates(env, keys) {
 
 async function getAccountBalance(env, keys) {
   const token = await getAccessToken(env, keys);
+  const isVirtual = keys.appKey.startsWith('V');
+  const trId = isVirtual ? 'VTTC8434R' : 'TTTC8434R';
+  
   const data = await kisFetch(env, '/uapi/domestic-stock/v1/trading/inquire-balance', {
     headers: {
       'content-type': 'application/json',
       authorization: `Bearer ${token}`,
       appkey: keys.appKey,
       appsecret: keys.appSecret,
-      tr_id: 'TTTC8434R', // 실전
+      tr_id: trId,
       custtype: 'P',
     },
     params: {
@@ -348,10 +364,8 @@ async function getAccountBalance(env, keys) {
     profitRate: Number(h.evlu_erng_rt),
   }));
 
-  const history = Array.from({ length: 15 }, (_, i) => ({
-    date: new Date(Date.now() - (15 - i) * 86400000).toISOString().slice(5, 10),
-    equity: Number(data.output2[0].tot_evlu_amt) * (0.95 + Math.random() * 0.1)
-  }));
+  // 실제 계좌 히스토리는 KIS에서 별도로 가져오기 어려우므로 현재 평가액을 기준으로 UI만 유지
+  const history = [{ date: new Date().toISOString().slice(5, 10), equity: Number(data.output2[0].tot_evlu_amt) }];
 
   return {
     totalBalance: Number(data.output2[0].tot_evlu_amt),
@@ -364,10 +378,12 @@ async function getAccountBalance(env, keys) {
   };
 }
 
-async function getChart(env, keys, symbol, period = '1D') {
+async function getChart(env, keys, symbol, period = 30) {
   const token = await getAccessToken(env, keys);
   const instrument = findInstrument(symbol);
-  if (isOverseasInstrument(instrument, symbol)) {
+  const isDomestic = /^\d+$/.test(String(symbol));
+  
+  if (!isDomestic) {
     const data = await kisFetch(env, '/uapi/overseas-price/v1/quotations/dailyprice', {
       headers: {
         'content-type': 'application/json',
@@ -387,7 +403,7 @@ async function getChart(env, keys, symbol, period = '1D') {
       },
     });
     if (data.rt_cd !== '0') throw new Error(data.msg1 || 'KIS overseas chart request failed');
-    return (data.output2 || []).map((item) => ({
+    return (data.output2 || []).slice(0, period).map((item) => ({
       date: item.xymd ? `${item.xymd.slice(4, 6)}/${item.xymd.slice(6, 8)}` : '',
       time: item.xymd ? `${item.xymd.slice(4, 6)}/${item.xymd.slice(6, 8)}` : '',
       price: Number(item.clos || item.last || 0),
@@ -397,37 +413,30 @@ async function getChart(env, keys, symbol, period = '1D') {
       volume: Number(item.tvol || 0),
     })).reverse();
   }
-  const daily = period === '1M';
-  const params = daily
-    ? {
-        fid_cond_mrkt_div_code: 'J',
-        fid_input_iscd: symbol,
-        fid_input_date_1: new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10).replace(/-/g, ''),
-        fid_input_date_2: new Date().toISOString().slice(0, 10).replace(/-/g, ''),
-        fid_period_div_code: 'D',
-        fid_org_adj_prc: '1',
-      }
-    : { fid_etc_cls_code: '', fid_cond_mrkt_div_code: 'J', fid_input_iscd: symbol, fid_pw_data_insp_cnt: '30', fid_pw_data_insp_hr_grpt_code: '5' };
-  const data = await kisFetch(env, daily ? '/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice' : '/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice', {
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, appkey: keys.appKey, appsecret: keys.appSecret, tr_id: daily ? 'FHKST03010100' : 'FHKST03010200', custtype: 'P' },
-    params,
+  
+  const date1 = new Date(Date.now() - (period + 10) * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
+  const date2 = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  
+  const data = await kisFetch(env, '/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice', {
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, appkey: keys.appKey, appsecret: keys.appSecret, tr_id: 'FHKST03010100', custtype: 'P' },
+    params: {
+      fid_cond_mrkt_div_code: 'J',
+      fid_input_iscd: symbol,
+      fid_input_date_1: date1,
+      fid_input_date_2: date2,
+      fid_period_div_code: 'D',
+      fid_org_adj_prc: '1',
+    },
   });
   if (data.rt_cd !== '0') throw new Error(data.msg1 || 'KIS chart request failed');
-  return (data.output2 || []).map((item) => daily ? {
+  return (data.output2 || []).slice(0, period).map((item) => ({
     date: `${item.stck_bsop_date.slice(4, 6)}/${item.stck_bsop_date.slice(6, 8)}`,
     price: Number(item.stck_clpr || 0),
     open: Number(item.stck_oprc || 0),
     high: Number(item.stck_hgpr || 0),
     low: Number(item.stck_lwpr || 0),
     volume: Number(item.acml_vol || 0),
-  } : {
-    time: `${item.stck_cntg_hour.slice(0, 2)}:${item.stck_cntg_hour.slice(2, 4)}`,
-    price: Number(item.stck_prpr || 0),
-    open: Number(item.stck_oprc || 0),
-    high: Number(item.stck_hgpr || 0),
-    low: Number(item.stck_lwpr || 0),
-    volume: Number(item.cntg_vol || 0),
-  }).reverse();
+  })).reverse();
 }
 
 function calculateSMA(prices, period) {
@@ -478,11 +487,10 @@ function mockChart() {
 }
 
 function defaultPortfolio() {
-  let balance = 90000000;
+  let balance = 100000000;
   const history = Array.from({ length: 31 }, (_, offset) => {
     const date = new Date(Date.now() - (30 - offset) * 86400000);
-    balance += (Math.random() - 0.45) * balance * 0.02;
-    return { date: date.toISOString().slice(0, 10), equity: Math.floor(balance) };
+    return { date: date.toISOString().slice(0, 10), equity: balance };
   });
   return { balance: 100000000, holdings: [], logs: [], history };
 }
@@ -491,7 +499,7 @@ function portfolioSummary(data) {
   let totalEvaluation = data.balance;
   let totalProfit = 0;
   let totalCost = 0;
-  const holdings = data.holdings.map((holding) => {
+  const holdings = (data.holdings || []).map((holding) => {
     const currentPrice = holding.currentPrice || holding.averagePrice;
     const evaluationAmount = currentPrice * holding.quantity;
     const cost = holding.averagePrice * holding.quantity;
@@ -541,15 +549,15 @@ async function pushNotification(env, userId, notification) {
 function marketStatus() {
   const now = new Date();
   const day = now.getUTCDay();
-  const minutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const hours = now.getUTCHours() + 9; // KST
   if (day === 0 || day === 6) return { isOpen: false, status: 'CLOSED', message: '주말 휴장' };
-  if (minutes >= 0 && minutes <= 390) return { isOpen: true, status: 'OPEN', message: '정규장 운영 중' };
+  if (hours >= 9 && hours < 16) return { isOpen: true, status: 'OPEN', message: '정규장 운영 중' };
   return { isOpen: false, status: 'CLOSED', message: '장 마감' };
 }
 
 function latestNews() {
   return [
-    { id: '1', title: '삼성전자, HBM3E 공급망 진입 기대감 확대', summary: '반도체 업황 개선 기대가 이어지고 있습니다.', source: '경제뉴스', sentiment: 'positive', score: 0.85, publishedAt: new Date().toISOString() },
+    { id: '1', title: '삼성전자, HBM3E 공급망 진입 기대감 확대', summary: '반도체 업황 개선 기대가 이어지고 있습니다.', source: '경제 뉴스', sentiment: 'positive', score: 0.85, publishedAt: new Date().toISOString() },
     { id: '2', title: '미국 연준, 고금리 장기화 가능성 시사', summary: '글로벌 위험자산 선호가 둔화될 수 있습니다.', source: '글로벌금융', sentiment: 'negative', score: -0.72, publishedAt: new Date().toISOString() },
     { id: '3', title: 'SK하이닉스, AI 메모리 수요 증가 수혜', summary: 'HBM 중심의 실적 개선 기대가 커졌습니다.', source: 'IT데일리', sentiment: 'positive', score: 0.92, publishedAt: new Date().toISOString() },
   ];
@@ -568,6 +576,7 @@ async function getStockNews(env, keys, symbol) {
 }
 
 async function getMarketIndex(env, keys, code) {
+  if (!keys.appKey || !keys.appSecret) return null;
   try {
     const token = await getAccessToken(env, keys);
     const data = await kisFetch(env, '/uapi/domestic-stock/v1/quotations/inquire-index-price', {
@@ -582,7 +591,7 @@ async function getMarketIndex(env, keys, code) {
       params: { fid_cond_mrkt_div_code: 'U', fid_input_iscd: code },
     });
     if (data.rt_cd !== '0') return null;
-    const o = data.output;
+    const o = data.output || {};
     return {
       value: Number(o.bstp_nmix_prpr || 0),
       change: Number(o.bstp_nmix_prdy_vrss || 0),
@@ -594,6 +603,7 @@ async function getMarketIndex(env, keys, code) {
 }
 
 async function getFluctuationRanking(env, keys, isGainer = true) {
+  if (!keys.appKey || !keys.appSecret) return null;
   try {
     const token = await getAccessToken(env, keys);
     const data = await kisFetch(env, '/uapi/domestic-stock/v1/ranking/fluctuation', {
@@ -636,7 +646,7 @@ async function getFluctuationRanking(env, keys, isGainer = true) {
 }
 
 async function placeKisOrder(env, keys, payload) {
-  const isVirtual = (env.KIS_API_URL || '').includes('vts');
+  const isVirtual = keys.appKey.startsWith('V');
   const token = await getAccessToken(env, keys);
   const orderBody = {
     CANO: keys.accountNo || '00000000',
@@ -702,6 +712,8 @@ async function route(context) {
   if (path === 'market/status') return response(marketStatus());
   
   if (path === 'market/sentiment') {
+    const user = await authenticate(request, env).catch(() => null);
+    const keys = user ? userKeys(user, env, users) : {};
     let value = 50;
     let label = 'neutral';
     let description = '시장 데이터를 분석 중입니다.';
@@ -766,13 +778,13 @@ async function route(context) {
 
   if (path === 'market/indices') {
     const [exchangeRates, kospi, kosdaq] = await Promise.all([
-      getExchangeRates(env, keys).catch(() => [{ name: 'USD/KRW', value: 1368.4, change: 0, changeRate: 0, type: 'fx' }]),
+      getExchangeRates(env, keys),
       getMarketIndex(env, keys, '0001'),
       getMarketIndex(env, keys, '1001'),
     ]);
     return response([
-      { name: 'KOSPI', value: kospi?.value || 2750.32, change: kospi?.change || 15.2, changeRate: kospi?.changeRate || 0.55 },
-      { name: 'KOSDAQ', value: kosdaq?.value || 890.15, change: kosdaq?.change || -2.1, changeRate: kosdaq?.changeRate || -0.23 },
+      { name: 'KOSPI', value: kospi?.value || 2540.32, change: kospi?.change || 0, changeRate: kospi?.changeRate || 0 },
+      { name: 'KOSDAQ', value: kosdaq?.value || 840.15, change: kosdaq?.change || 0, changeRate: kosdaq?.changeRate || 0 },
       ...exchangeRates,
     ]);
   }
@@ -781,7 +793,7 @@ async function route(context) {
     const q = (url.searchParams.get('q') || '').trim().toLowerCase();
     const filtered = marketUniverse.filter((item) => `${item.symbol} ${item.name} ${item.market}`.toLowerCase().includes(q));
     const prices = await Promise.all(filtered.slice(0, 12).map((item, index) => getLiveInstrumentPrice(env, keys, item.symbol, index)));
-    return response(prices.map((item) => ({ ...item, volume: item.volume.toLocaleString() })));
+    return response(prices);
   }
 
   if (path === 'market/movers') {
@@ -792,18 +804,16 @@ async function route(context) {
   }
 
   if (parts[0] === 'market' && parts[1] === 'stock' && parts[2]) {
-    return response(await getLiveInstrumentPrice(env, keys, parts[2], marketUniverse.findIndex((item) => item.symbol === parts[2])));
+    return response(await getLiveInstrumentPrice(env, keys, parts[2], 0));
   }
 
   if (parts[0] === 'market' && parts[1] === 'news' && parts[2]) {
-    const news = await getStockNews(env, keys, parts[2]);
-    if (news.length > 0) return response(news);
-    return response([{ id: 's1', title: `${parts[2]} 실적 개선 가시화`, source: '인사이트', publishedAt: new Date().toISOString() }]);
+    return response(await getStockNews(env, keys, parts[2]));
   }
 
   if (parts[0] === 'market' && parts[1] === 'signal' && parts[2]) {
     try {
-      const chart = await getChart(env, keys, parts[2], '1D');
+      const chart = await getChart(env, keys, parts[2], 30);
       const prices = chart.map(p => p.price);
       const rsi = calculateRSI(prices, 14);
       const instrument = findInstrument(parts[2]) || { name: parts[2] };
@@ -817,19 +827,8 @@ async function route(context) {
   }
 
   if (parts[0] === 'market' && parts[1] === 'chart' && parts[2]) {
-    try { return response(enrichChart(await getChart(env, keys, parts[2], url.searchParams.get('period') || '1D'))); }
+    try { return response(enrichChart(await getChart(env, keys, parts[2], Number(url.searchParams.get('period')) || 30))); }
     catch { return response(enrichChart(mockChart())); }
-  }
-
-  if (parts[0] === 'market' && parts[1] === 'orderbook' && parts[2]) {
-    const base = mockPrice(parts[2]).currentPrice;
-    const asks = Array.from({ length: 10 }, (_, index) => ({ price: base + (10 - index) * 100, volume: 10000 + index * 3500 }));
-    const bids = Array.from({ length: 10 }, (_, index) => ({ price: base - (index + 1) * 100, volume: 12000 + index * 3000 }));
-    return response({ symbol: parts[2], asks, bids });
-  }
-
-  if (parts[0] === 'market' && parts[1] === 'fundamentals' && parts[2]) {
-    return response({ per: 15.4, pbr: 1.2, eps: 4500, bps: 62000, dividendYield: 2.1, w52High: 85000, w52Low: 65000 });
   }
 
   if (path === 'watchlist') {
@@ -871,7 +870,7 @@ async function route(context) {
   if (method === 'POST' && path === 'strategies/backtest') {
     const { strategy, symbol, period } = payload;
     try {
-      const rawChart = await getChart(env, keys, symbol, '1M');
+      const rawChart = await getChart(env, keys, symbol, period || 30);
       const enriched = enrichChart(rawChart);
       let cash = 10000000;
       let shares = 0;
@@ -911,15 +910,7 @@ async function route(context) {
   if (method === 'POST' && path === 'trading/real/toggle') {
     const state = { active: Boolean(payload.active), mode: payload.mode || 'mock', updatedAt: new Date().toISOString() };
     await putKV(env, `engine:${user.id}`, state);
-    await pushNotification(env, user.id, { type: 'system', title: payload.active ? '엔진 가동' : '엔진 정지', body: `엔진 상태가 ${payload.active ? '가동' : '중지'}되었습니다.` });
     return response({ status: 'success', ...state });
-  }
-
-  if (method === 'POST' && path === 'trading/stop-all') {
-    const state = await getKV(env, `engine:${user.id}`, { active: false });
-    await putKV(env, `engine:${user.id}`, { ...state, active: false });
-    await pushNotification(env, user.id, { type: 'risk', title: `전역 매매 정지`, body: `모든 자동 매매 엔진이 정지되었습니다.` });
-    return response({ status: 'success' });
   }
 
   if (method === 'POST' && path === 'trading/scan') {
@@ -929,7 +920,6 @@ async function route(context) {
     const riskSettings = storedUser.settings || { dailyLossLimit: 5 };
     const balanceData = engineState.mode === 'real' ? await getAccountBalance(env, keys) : portfolioSummary(await getKV(env, `portfolio:${user.id}`, defaultPortfolio()));
     if (balanceData.profitRate <= -riskSettings.dailyLossLimit) {
-      await pushNotification(env, user.id, { type: 'risk', title: `긴급 정지`, body: `일일 손실 제한 도달.` });
       await putKV(env, `engine:${user.id}`, { ...engineState, active: false });
       return response({ status: 'stopped' });
     }
@@ -939,20 +929,17 @@ async function route(context) {
       try {
         const symbol = strategy.targetSymbol || '005930';
         const priceData = await getLiveInstrumentPrice(env, keys, symbol);
-        const chart = await getChart(env, keys, symbol, '1D');
+        const chart = await getChart(env, keys, symbol, 1);
         const rsi = calculateRSI(chart.map(p => p.price), 14);
-        const news = await getStockNews(env, keys, symbol);
-        const sentiment = news.length > 0 ? news.reduce((s, n) => s + (n.score || 0.5), 0) / news.length : 0.5;
         let buyMet = 0, buyReq = strategy.conditions.filter(c => c.action === 'BUY').length;
         for (const c of strategy.conditions) {
-          let v = c.type === 'RSI' ? rsi : c.type === 'PRICE' ? priceData.currentPrice : c.type === 'NEWS' ? sentiment : 0;
+          let v = c.type === 'RSI' ? rsi : c.type === 'PRICE' ? priceData.currentPrice : 0;
           let met = c.operator === '<=' ? v <= Number(c.value) : v >= Number(c.value);
           if (met && c.action === 'BUY') buyMet++;
         }
         if (buyReq > 0 && buyMet === buyReq) {
           const qty = Math.floor((strategy.investmentPerOrder || 1000000) / priceData.currentPrice);
           if (qty > 0) {
-            const reason = `RSI: ${rsi.toFixed(1)}, 뉴스: ${sentiment.toFixed(2)}`;
             if (engineState.mode === 'real') await placeKisOrder(env, keys, { symbol, orderType: 'BUY', price: priceData.currentPrice, quantity: qty });
             else {
               const portfolio = await getKV(env, `portfolio:${user.id}`, defaultPortfolio());
@@ -960,10 +947,9 @@ async function route(context) {
               const existing = portfolio.holdings.find(h => h.symbol === symbol);
               if (existing) { existing.averagePrice = (existing.averagePrice * existing.quantity + qty * priceData.currentPrice) / (existing.quantity + qty); existing.quantity += qty; }
               else portfolio.holdings.push({ symbol, name: priceData.name || symbol, quantity: qty, averagePrice: priceData.currentPrice });
-              portfolio.logs.unshift({ symbol, name: priceData.name || symbol, orderType: 'BUY', price: priceData.currentPrice, quantity: qty, timestamp: new Date().toISOString(), reason });
+              portfolio.logs.unshift({ symbol, name: priceData.name || symbol, orderType: 'BUY', price: priceData.currentPrice, quantity: qty, timestamp: new Date().toISOString(), reason: 'AI Condition Met' });
               await putKV(env, `portfolio:${user.id}`, portfolio);
             }
-            await pushNotification(env, user.id, { type: 'trade', title: `[자동] 매수`, body: `${strategy.name}: ${symbol} ${qty}주 (${reason})`, symbol });
             results.push({ strategy: strategy.name, action: 'BUY', symbol });
           }
         }
@@ -975,7 +961,6 @@ async function route(context) {
   if (method === 'POST' && path === 'trading/order') {
     if (payload.mode === 'real') {
       const result = await placeKisOrder(env, keys, payload);
-      await pushNotification(env, user.id, { type: 'trade', title: `실전 주문 접수`, body: `${payload.symbol} ${payload.quantity}주 실전 주문 접수.`, symbol: payload.symbol });
       return response({ status: 'success', data: result });
     }
     const data = await getKV(env, `portfolio:${user.id}`, defaultPortfolio());
@@ -994,7 +979,6 @@ async function route(context) {
     }
     data.logs.unshift({ symbol: payload.symbol, name: payload.name || symbolNames[payload.symbol] || payload.symbol, orderType: payload.orderType, price: Number(payload.price), quantity: Number(payload.quantity), timestamp: new Date().toISOString(), reason: 'Manual' });
     await putKV(env, `portfolio:${user.id}`, data);
-    await pushNotification(env, user.id, { type: 'trade', title: `${payload.orderType} 완료`, body: `${payload.symbol} ${payload.quantity}주 체결.`, symbol: payload.symbol });
     return response({ status: 'success', data });
   }
 
@@ -1025,10 +1009,6 @@ async function route(context) {
         const act = (lower.includes('매수') || lower.includes('buy')) ? 'BUY' : 'SELL';
         conditions.push({ id: Date.now() + 3, type: 'PRICE', operator: act === 'BUY' ? '<=' : '>=', value: val, action: act });
       }
-    }
-    if (lower.includes('뉴스') || lower.includes('심리') || lower.includes('sentiment')) {
-      if (lower.includes('좋') || lower.includes('호재') || lower.includes('positive')) conditions.push({ id: Date.now() + 4, type: 'NEWS', operator: '>=', value: 0.7, action: 'BUY' });
-      if (lower.includes('나쁘') || lower.includes('악재') || lower.includes('negative')) conditions.push({ id: Date.now() + 5, type: 'NEWS', operator: '<=', value: 0.3, action: 'SELL' });
     }
     if (conditions.length === 0) conditions.push({ id: Date.now(), type: 'RSI', operator: '<=', value: 30, action: 'BUY' });
     return response(conditions);
